@@ -4,7 +4,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { jwtDecode } from 'jwt-decode'; // Instalar pacote: npm install jwt-decode
+import { jwtDecode } from 'jwt-decode'; 
 import { api } from '@/lib/api';
 import { AuthState, LoginRequest, RegisterRequest, VerifyRequest, UserData, ApiError } from '@/types/auth';
 
@@ -15,7 +15,9 @@ interface AuthContextType extends AuthState {
   verify: (data: VerifyRequest) => Promise<string>;
   logout: () => void;
   error: ApiError | null;
+  successMessage: string | null;
   clearError: () => void;
+  clearSuccess: () => void;
 }
 
 // Criação do contexto
@@ -37,10 +39,14 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [state, setState] = useState<AuthState>(initialState);
   const [error, setError] = useState<ApiError | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const router = useRouter();
 
   // Limpar erro
   const clearError = () => setError(null);
+  
+  // Limpar mensagem de sucesso
+  const clearSuccess = () => setSuccessMessage(null);
 
   // Efeito para verificar se o usuário está autenticado ao carregar a página
   useEffect(() => {
@@ -92,6 +98,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (data: LoginRequest) => {
     try {
       clearError();
+      clearSuccess();
       setState(prev => ({ ...prev, isLoading: true }));
       
       const response = await api.auth.login(data);
@@ -120,7 +127,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       router.push('/dashboard');
     } catch (err) {
       const apiError = err as ApiError;
-      setError(apiError);
+      setError({
+        message: apiError.message || 'Falha ao fazer login. Verifique suas credenciais.',
+        status: apiError.status || 400
+      });
       setState(prev => ({ ...prev, isLoading: false }));
     }
   };
@@ -129,11 +139,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const register = async (data: RegisterRequest): Promise<string> => {
     try {
       clearError();
+      clearSuccess();
       setState(prev => ({ ...prev, isLoading: true }));
       
       const response = await api.auth.register(data);
       
       setState(prev => ({ ...prev, isLoading: false }));
+      
+      // Define a mensagem de sucesso
+      setSuccessMessage('Código enviado para seu email. Verifique sua caixa de entrada.');
       
       // Navega para a página de verificação com o email como parâmetro
       router.push(`/verify?email=${encodeURIComponent(data.email)}`);
@@ -141,7 +155,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return response;
     } catch (err) {
       const apiError = err as ApiError;
-      setError(apiError);
+      setError({
+        message: apiError.message || 'Erro no registro. Tente novamente.',
+        status: apiError.status || 400
+      });
       setState(prev => ({ ...prev, isLoading: false }));
       throw apiError;
     }
@@ -151,11 +168,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const verify = async (data: VerifyRequest): Promise<string> => {
     try {
       clearError();
+      clearSuccess();
       setState(prev => ({ ...prev, isLoading: true }));
       
       const response = await api.auth.verifyCode(data);
       
       setState(prev => ({ ...prev, isLoading: false }));
+      
+      // Define a mensagem de sucesso
+      setSuccessMessage('Conta verificada com sucesso! Agora você pode fazer login.');
       
       // Navega para a página de login
       router.push('/login');
@@ -163,7 +184,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return response;
     } catch (err) {
       const apiError = err as ApiError;
-      setError(apiError);
+      setError({
+        message: apiError.message || 'Código inválido ou expirado. Tente novamente.',
+        status: apiError.status || 400
+      });
       setState(prev => ({ ...prev, isLoading: false }));
       throw apiError;
     }
@@ -185,7 +209,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         verify,
         logout,
         error,
+        successMessage,
         clearError,
+        clearSuccess,
       }}
     >
       {children}

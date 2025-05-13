@@ -11,7 +11,7 @@ import { Alert } from '@/components/ui/alert';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 
 export function RegisterForm() {
-  const { register, error, clearError, isLoading } = useAuth();
+  const { register, error, clearError, successMessage, clearSuccess, isLoading } = useAuth();
   
   const [formData, setFormData] = useState({
     email: '',
@@ -25,8 +25,6 @@ export function RegisterForm() {
     confirmarSenha: '',
   });
   
-  const [successMessage, setSuccessMessage] = useState('');
-  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -36,10 +34,9 @@ export function RegisterForm() {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
     
-    // Limpar mensagem de sucesso quando o usuário começa a editar o formulário novamente
-    if (successMessage) {
-      setSuccessMessage('');
-    }
+    // Limpar mensagem de erro ou sucesso quando o usuário começa a editar o formulário novamente
+    if (error) clearError();
+    if (successMessage) clearSuccess();
   };
   
   const validateForm = () => {
@@ -118,8 +115,8 @@ export function RegisterForm() {
           {successMessage && (
             <Alert 
               variant="success" 
-              title="Cadastro realizado com sucesso"
-              onClose={() => setSuccessMessage('')}
+              title="Sucesso"
+              onClose={clearSuccess}
             >
               {successMessage}
             </Alert>

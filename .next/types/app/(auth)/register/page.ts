@@ -1,4 +1,4 @@
-// File: C:\Users\odisl\Videos\projeto_integrador2\frontend\src\app\(auth)\register\page.tsx
+// File: C:\Users\evers\Downloads\integrador 2\Frontend_HelpDesk\src\app\(auth)\register\page.tsx
 import * as entry from '../../../../../src/app/(auth)/register/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

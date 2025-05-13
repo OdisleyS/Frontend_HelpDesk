@@ -12,7 +12,7 @@ import { Alert } from '@/components/ui/alert';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 
 export function VerifyForm() {
-  const { verify, error, clearError, isLoading } = useAuth();
+  const { verify, error, clearError, successMessage, clearSuccess, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -49,6 +49,10 @@ export function VerifyForm() {
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
+    
+    // Limpar mensagem de erro ou sucesso quando o usuário começa a editar o formulário novamente
+    if (error) clearError();
+    if (successMessage) clearSuccess();
   };
   
   const validateForm = () => {
@@ -86,7 +90,7 @@ export function VerifyForm() {
     
     try {
       await verify(formData);
-      // O redirecionamento é feito pelo AuthContext
+      // O redirecionamento é feito pelo AuthContext após a verificação bem-sucedida
     } catch (error) {
       // O erro já é tratado pelo contexto de autenticação
       console.error('Erro ao verificar código:', error);
@@ -94,9 +98,9 @@ export function VerifyForm() {
   };
 
   const handleResendCode = () => {
-    // Aqui você implementaria a lógica para reenviar o código
-    // Como nosso backend não tem essa funcionalidade, podemos simular
-    alert('Esta funcionalidade ainda não está implementada no backend.');
+    // Para implementar a funcionalidade de reenviar o código,
+    // precisaríamos de um endpoint no backend para isso
+    alert('Esta funcionalidade ainda não está implementada no backend. Por favor, verifique seu email original ou tente cadastrar-se novamente.');
   };
   
   return (
@@ -117,6 +121,16 @@ export function VerifyForm() {
               onClose={clearError}
             >
               {error.message}
+            </Alert>
+          )}
+          
+          {successMessage && (
+            <Alert 
+              variant="success" 
+              title="Sucesso"
+              onClose={clearSuccess}
+            >
+              {successMessage}
             </Alert>
           )}
           

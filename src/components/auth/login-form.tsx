@@ -2,7 +2,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,8 @@ import { Alert } from '@/components/ui/alert';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 
 export function LoginForm() {
-  const { login, error, clearError, isLoading } = useAuth();
+  const { login, error, clearError, successMessage, clearSuccess, isLoading } = useAuth();
+  const searchParams = useSearchParams();
   
   const [formData, setFormData] = useState({
     email: '',
@@ -23,6 +25,14 @@ export function LoginForm() {
     senha: '',
   });
   
+  // Pegar o email da URL, se disponível
+  useEffect(() => {
+    const emailFromUrl = searchParams?.get('email');
+    if (emailFromUrl) {
+      setFormData(prev => ({ ...prev, email: emailFromUrl }));
+    }
+  }, [searchParams]);
+  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -31,6 +41,9 @@ export function LoginForm() {
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
+    
+    // Limpar mensagem de erro quando o usuário começa a editar o formulário novamente
+    if (error) clearError();
   };
   
   const validateForm = () => {
@@ -93,6 +106,16 @@ export function LoginForm() {
             </Alert>
           )}
           
+          {successMessage && (
+            <Alert 
+              variant="success" 
+              title="Sucesso"
+              onClose={clearSuccess}
+            >
+              {successMessage}
+            </Alert>
+          )}
+          
           <FormField
             id="email"
             label="Email"
@@ -107,7 +130,7 @@ export function LoginForm() {
               onChange={handleChange}
               error={!!formErrors.email}
               autoComplete="email"
-              autoFocus
+              autoFocus={!formData.email}
             />
           </FormField>
           
@@ -125,6 +148,7 @@ export function LoginForm() {
               onChange={handleChange}
               error={!!formErrors.senha}
               autoComplete="current-password"
+              autoFocus={!!formData.email}
             />
           </FormField>
         </CardContent>

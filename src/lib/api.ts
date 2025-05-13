@@ -7,8 +7,8 @@ import {
   VerifyRequest 
 } from '@/types/auth';
 
-// URL base da API
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+// URL base da API - agora apontando para o Render
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'troqueaquipelourl';
 
 /**
  * Cliente de API para comunicação com o backend
@@ -37,13 +37,22 @@ class ApiClient {
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: 'include', // Importante para cookies
     });
 
-    // Se a resposta não for ok, lança um erro
+    // Se a resposta não for ok, lança um erro com mensagem apropriada
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      let errorMessage = 'Ocorreu um erro na requisição';
+      
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData || errorMessage;
+      } catch (e) {
+        // Se não conseguir parsear o JSON, usa a mensagem padrão
+      }
+      
       throw {
-        message: errorData.message || 'Ocorreu um erro na requisição',
+        message: errorMessage,
         status: response.status,
       };
     }
@@ -53,6 +62,14 @@ class ApiClient {
       return null as T;
     }
 
+    // Se for uma resposta de texto simples
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('text/plain')) {
+      const text = await response.text();
+      return text as unknown as T;
+    }
+
+    // Caso contrário, tenta parsear como JSON
     return await response.json();
   }
 
@@ -110,6 +127,24 @@ class ApiClient {
     getUserProfile: async (token: string) => {
       // Note: Precisamos implementar este endpoint no backend
       return this.fetchJson('/api/v1/user/profile', {
+        headers: this.getAuthHeaders(token),
+      });
+    },
+
+    /**
+     * Lista as categorias
+     */
+    getCategories: async (token: string) => {
+      return this.fetchJson('/api/v1/categories', {
+        headers: this.getAuthHeaders(token),
+      });
+    },
+
+    /**
+     * Lista os tickets por status
+     */
+    getTicketsByStatus: async (token: string, status: string, page: number = 0, size: number = 10) => {
+      return this.fetchJson(`/api/v1/tickets?status=${status}&page=${page}&size=${size}`, {
         headers: this.getAuthHeaders(token),
       });
     },
