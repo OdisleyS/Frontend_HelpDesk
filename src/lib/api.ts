@@ -7,8 +7,13 @@ import {
   VerifyRequest 
 } from '@/types/auth';
 
-// URL base da API - agora apontando para o Render
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'troqueaquipelourl';
+// URL base da API - sem fallback, apenas do arquivo .env.local
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Verificação para garantir que a variável de ambiente esteja configurada
+if (!API_URL) {
+  console.error('ERRO: A variável de ambiente NEXT_PUBLIC_API_URL não está configurada no arquivo .env.local');
+}
 
 /**
  * Cliente de API para comunicação com o backend
@@ -16,8 +21,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'troqueaquipelourl';
 class ApiClient {
   private baseUrl: string;
   
-  constructor(baseUrl: string = API_URL) {
-    this.baseUrl = baseUrl;
+  constructor() {
+    // Forçar o uso apenas da variável de ambiente
+    if (!API_URL) {
+      throw new Error('A variável de ambiente NEXT_PUBLIC_API_URL não está configurada');
+    }
+    this.baseUrl = API_URL;
   }
 
   /**
