@@ -15,7 +15,7 @@ export default function RegisterPage() {
   // Redirecionar para o dashboard se o usuário já estiver autenticado
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      router.push('/dashboard');
+      router.push('/');
     }
   }, [isAuthenticated, isLoading, router]);
   
