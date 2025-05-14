@@ -1,4 +1,4 @@
-// src/components/gestor/gestor-header.tsx
+// src/components/gestor/gestor-header.tsx (atualizar)
 
 'use client';
 
@@ -7,16 +7,35 @@ import { useAuth } from '@/context/auth-context';
 export default function GestorHeader() {
   const { user } = useAuth();
 
+  // Função para obter o título da página baseado no path
+  const getPageTitle = () => {
+    const path = window.location.pathname;
+    
+    switch (path) {
+      case '/gestor':
+        return 'Dashboard do Gestor';
+      case '/gestor/departamentos':
+        return 'Gerenciamento de Departamentos';
+      case '/gestor/categorias':
+        return 'Gerenciamento de Categorias';
+      case '/gestor/usuarios':
+        return 'Gerenciamento de Usuários';
+      case '/gestor/estatisticas':
+        return 'Estatísticas e Relatórios';
+      case '/gestor/notificacoes':
+        return 'Notificações';
+      case '/gestor/perfil':
+        return 'Meu Perfil';
+      default:
+        return 'HelpDesk';
+    }
+  };
+
   return (
     <header className="bg-white border-b border-slate-200 p-4">
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-bold text-slate-800">
-          {/* Título dinâmico conforme a página atual */}
-          {window.location.pathname === '/gestor' && 'Dashboard do Gestor'}
-          {window.location.pathname === '/gestor/estatisticas' && 'Estatísticas e Relatórios'}
-          {window.location.pathname === '/gestor/usuarios' && 'Gerenciamento de Usuários'}
-          {window.location.pathname === '/gestor/notificacoes' && 'Notificações'}
-          {window.location.pathname === '/gestor/perfil' && 'Meu Perfil'}
+          {getPageTitle()}
         </h1>
         
         <div className="flex items-center gap-3">

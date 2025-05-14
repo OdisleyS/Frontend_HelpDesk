@@ -140,6 +140,23 @@ export const api = {
       }
       
       return response.json();
+    },
+    
+    update: async (id: number, categoryData: any, token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/categories/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(categoryData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao atualizar categoria');
+      }
+      
+      return response.json();
     }
   },
 
@@ -188,6 +205,57 @@ export const api = {
       }
       
       return true;
+    }
+  },
+  
+  // Novo serviço para departamentos
+  departments: {
+    list: async (token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/departamentos`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao buscar departamentos');
+      }
+      
+      return response.json();
+    },
+    
+    create: async (departmentData: any, token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/departamentos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(departmentData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao criar departamento');
+      }
+      
+      return response.json();
+    },
+    
+    update: async (id: number, departmentData: any, token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/departamentos/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(departmentData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao atualizar departamento');
+      }
+      
+      return response.json();
     }
   }
 };
