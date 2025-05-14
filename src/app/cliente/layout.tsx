@@ -1,14 +1,14 @@
-// src/app/dashboard/layout.tsx
+// src/app/cliente/layout.tsx
 
 'use client';
 
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, ReactNode } from 'react';
-import Sidebar from '@/components/dashboard/sidebar';
-import Header from '@/components/dashboard/header';
+import ClienteSidebar from '@/components/cliente/cliente-sidebar';
+import ClienteHeader from '@/components/cliente/cliente-header';
 
-export default function DashboardLayout({
+export default function ClienteLayout({
   children,
 }: {
   children: ReactNode;
@@ -16,12 +16,17 @@ export default function DashboardLayout({
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
-  // Redirecionar para login se não estiver autenticado
+  // Redirecionar para login se não estiver autenticado ou se não for cliente
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        router.push('/login');
+      } else if (user && user.tipo !== 'CLIENTE') {
+        // Se não for cliente, redirecionar para o dashboard apropriado
+        router.push('/');
+      }
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, user]);
 
   // Mostrar spinner enquanto verifica autenticação
   if (isLoading) {
@@ -32,19 +37,19 @@ export default function DashboardLayout({
     );
   }
 
-  // Se não estiver autenticado, não renderiza nada (será redirecionado)
-  if (!isAuthenticated) {
+  // Se não estiver autenticado ou não for cliente, não renderiza nada (será redirecionado)
+  if (!isAuthenticated || (user && user.tipo !== 'CLIENTE')) {
     return null;
   }
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
-      <Sidebar />
+      <ClienteSidebar />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <Header />
+        <ClienteHeader />
         <main className="flex-1 p-6">
           {children}
         </main>

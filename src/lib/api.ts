@@ -1,164 +1,193 @@
 // src/lib/api.ts
 
-import { 
-  LoginRequest, 
-  LoginResponse, 
-  RegisterRequest, 
-  VerifyRequest 
-} from '@/types/auth';
+import { LoginRequest, LoginResponse, RegisterRequest, VerifyRequest } from '@/types/auth';
 
-// URL base da API - sem fallback, apenas do arquivo .env.local
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL; // Ajuste para o URL do seu backend
 
-// Verificação para garantir que a variável de ambiente esteja configurada
-if (!API_URL) {
-  console.error('ERRO: A variável de ambiente NEXT_PUBLIC_API_URL não está configurada no arquivo .env.local');
-}
+export const api = {
+  auth: {
+    login: async (data: LoginRequest): Promise<LoginResponse> => {
+      const response = await fetch(`${BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
 
-/**
- * Cliente de API para comunicação com o backend
- */
-class ApiClient {
-  private baseUrl: string;
+      if (!response.ok) {
+        const error = await response.json();
+        throw { message: error.message || 'Erro ao fazer login', status: response.status };
+      }
+
+      return response.json();
+    },
+
+    register: async (data: RegisterRequest): Promise<string> => {
+      const response = await fetch(`${BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw { message: error.message || 'Erro ao registrar', status: response.status };
+      }
+
+      const result = await response.text();
+      return result;
+    },
+
+    verifyCode: async (data: VerifyRequest): Promise<string> => {
+      const response = await fetch(`${BASE_URL}/auth/verify-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw { message: error.message || 'Código inválido ou expirado', status: response.status };
+      }
+
+      const result = await response.text();
+      return result;
+    },
+  },
   
-  constructor() {
-    // Forçar o uso apenas da variável de ambiente
-    if (!API_URL) {
-      throw new Error('A variável de ambiente NEXT_PUBLIC_API_URL não está configurada');
-    }
-    this.baseUrl = API_URL;
-  }
-
-  /**
-   * Configuração básica para requisições
-   */
-  private async fetchJson<T>(
-    endpoint: string, 
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-    
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      credentials: 'include', // Importante para cookies
-    });
-
-    // Se a resposta não for ok, lança um erro com mensagem apropriada
-    if (!response.ok) {
-      let errorMessage = 'Ocorreu um erro na requisição';
+  tickets: {
+    listByStatus: async (status: string, token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets?status=${status}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorData || errorMessage;
-      } catch (e) {
-        // Se não conseguir parsear o JSON, usa a mensagem padrão
+      if (!response.ok) {
+        throw new Error('Falha ao buscar chamados');
       }
       
-      throw {
-        message: errorMessage,
-        status: response.status,
-      };
+      return response.json();
+    },
+    
+    create: async (ticketData: any, token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(ticketData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao criar chamado');
+      }
+      
+      return response.json();
+    },
+    
+    updateStatus: async (id: number, newStatus: string, token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ novoStatus: newStatus })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao atualizar status do chamado');
+      }
+      
+      return true;
     }
+  },
 
-    // Se a resposta for 204 No Content, retorna null
-    if (response.status === 204) {
-      return null as T;
+  categories: {
+    list: async (token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/categories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao buscar categorias');
+      }
+      
+      return response.json();
+    },
+    
+    create: async (categoryData: any, token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/categories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(categoryData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao criar categoria');
+      }
+      
+      return response.json();
     }
+  },
 
-    // Se for uma resposta de texto simples
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('text/plain')) {
-      const text = await response.text();
-      return text as unknown as T;
+  users: {
+    list: async (token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/admin/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao buscar usuários');
+      }
+      
+      return response.json();
+    },
+    
+    create: async (userData: any, token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/admin/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(userData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao criar usuário');
+      }
+      
+      return response.json();
+    },
+    
+    updateStatus: async (id: number, active: boolean, token: string) => {
+      const response = await fetch(`${BASE_URL}/api/v1/admin/users/${id}/status?ativo=${active}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao atualizar status do usuário');
+      }
+      
+      return true;
     }
-
-    // Caso contrário, tenta parsear como JSON
-    return await response.json();
   }
-
-  /**
-   * Configura o token JWT para requisições autenticadas
-   */
-  private getAuthHeaders(token: string): HeadersInit {
-    return {
-      'Authorization': `Bearer ${token}`,
-    };
-  }
-
-  /**
-   * API de autenticação
-   */
-  auth = {
-    /**
-     * Realiza o login do usuário
-     */
-    login: async (data: LoginRequest): Promise<LoginResponse> => {
-      return this.fetchJson<LoginResponse>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    },
-
-    /**
-     * Registra um novo usuário
-     */
-    register: async (data: RegisterRequest): Promise<string> => {
-      return this.fetchJson<string>('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    },
-
-    /**
-     * Verifica o código enviado por email
-     */
-    verifyCode: async (data: VerifyRequest): Promise<string> => {
-      return this.fetchJson<string>('/auth/verify-code', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    },
-  };
-
-  /**
-   * API protegida que requer autenticação
-   */
-  protected = {
-    /**
-     * Obtém os dados do usuário logado
-     */
-    getUserProfile: async (token: string) => {
-      // Note: Precisamos implementar este endpoint no backend
-      return this.fetchJson('/api/v1/user/profile', {
-        headers: this.getAuthHeaders(token),
-      });
-    },
-
-    /**
-     * Lista as categorias
-     */
-    getCategories: async (token: string) => {
-      return this.fetchJson('/api/v1/categories', {
-        headers: this.getAuthHeaders(token),
-      });
-    },
-
-    /**
-     * Lista os tickets por status
-     */
-    getTicketsByStatus: async (token: string, status: string, page: number = 0, size: number = 10) => {
-      return this.fetchJson(`/api/v1/tickets?status=${status}&page=${page}&size=${size}`, {
-        headers: this.getAuthHeaders(token),
-      });
-    },
-  };
-}
-
-// Exporta uma instância única do cliente de API
-export const api = new ApiClient();
+};

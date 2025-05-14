@@ -1,4 +1,4 @@
-// src/components/dashboard/sidebar.tsx
+// src/components/cliente/cliente-sidebar.tsx
 
 'use client';
 
@@ -19,6 +19,18 @@ const TicketsIcon = () => (
   </svg>
 );
 
+const AddIcon = () => (
+  <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+  </svg>
+);
+
+const NotificationIcon = () => (
+  <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+  </svg>
+);
+
 const ProfileIcon = () => (
   <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -31,46 +43,18 @@ const LogoutIcon = () => (
   </svg>
 );
 
-export default function Sidebar() {
-  const { logout, user } = useAuth();
+// Definição de itens do menu
+const menuItems = [
+  { icon: HomeIcon, name: 'Dashboard', path: '/cliente' },
+  { icon: TicketsIcon, name: 'Meus Chamados', path: '/cliente/meus-chamados' },
+  { icon: AddIcon, name: 'Abrir Chamado', path: '/cliente/abrir-chamado' },
+  { icon: NotificationIcon, name: 'Notificações', path: '/cliente/notificacoes' },
+  { icon: ProfileIcon, name: 'Meu Perfil', path: '/cliente/perfil' },
+];
+
+export default function ClienteSidebar() {
+  const { logout } = useAuth();
   const pathname = usePathname();
-
-  // Menu dinâmico baseado no tipo de usuário
-  const getMenuItems = () => {
-    const baseItems = [
-      { icon: HomeIcon, name: 'Dashboard', path: '/dashboard' }
-    ];
-
-    // Redireciona para a área específica do usuário baseado no tipo
-    if (user?.tipo === 'CLIENTE') {
-      baseItems[0].path = '/cliente';
-      baseItems.push(
-        { icon: TicketsIcon, name: 'Meus Chamados', path: '/cliente/meus-chamados' },
-        { icon: ProfileIcon, name: 'Meu Perfil', path: '/cliente/perfil' }
-      );
-    } else if (user?.tipo === 'TECNICO') {
-      baseItems[0].path = '/tecnico';
-      baseItems.push(
-        { icon: TicketsIcon, name: 'Chamados', path: '/tecnico/chamados' },
-        { icon: ProfileIcon, name: 'Meu Perfil', path: '/tecnico/perfil' }
-      );
-    } else if (user?.tipo === 'GESTOR') {
-      baseItems[0].path = '/gestor';
-      baseItems.push(
-        { icon: TicketsIcon, name: 'Estatísticas', path: '/gestor/estatisticas' },
-        { icon: ProfileIcon, name: 'Meu Perfil', path: '/gestor/perfil' }
-      );
-    } else {
-      // Menu padrão se o tipo não for reconhecido
-      baseItems.push(
-        { icon: ProfileIcon, name: 'Perfil', path: '/dashboard/perfil' }
-      );
-    }
-
-    return baseItems;
-  };
-
-  const menuItems = getMenuItems();
 
   return (
     <div className="w-64 bg-white border-r border-slate-200 h-screen">
@@ -91,20 +75,6 @@ export default function Sidebar() {
             <path d="M12 8v4l3 3" />
           </svg>
           <span className="text-xl font-bold text-slate-900">HelpDesk</span>
-        </div>
-      </div>
-
-      {/* Informações do usuário */}
-      <div className="px-6 py-4 border-b border-slate-200">
-        <div className="flex flex-col items-center">
-          <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mb-2">
-            {user?.nome?.charAt(0).toUpperCase() || (user?.email?.charAt(0).toUpperCase() || 'U')}
-          </div>
-          <h3 className="font-medium">{user?.nome || (user?.email?.split('@')[0] || 'Usuário')}</h3>
-          <p className="text-sm text-slate-500">{user?.email}</p>
-          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full mt-1">
-            {user?.tipo || 'Usuário'}
-          </span>
         </div>
       </div>
 

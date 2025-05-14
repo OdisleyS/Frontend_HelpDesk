@@ -1,4 +1,4 @@
-// src/components/dashboard/sidebar.tsx
+// src/components/gestor/gestor-sidebar.tsx
 
 'use client';
 
@@ -13,9 +13,21 @@ const HomeIcon = () => (
   </svg>
 );
 
-const TicketsIcon = () => (
+const StatsIcon = () => (
   <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 002 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+  </svg>
+);
+
+const UsersIcon = () => (
+  <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+);
+
+const NotificationIcon = () => (
+  <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
   </svg>
 );
 
@@ -31,46 +43,18 @@ const LogoutIcon = () => (
   </svg>
 );
 
-export default function Sidebar() {
-  const { logout, user } = useAuth();
+// Definição de itens do menu
+const menuItems = [
+  { icon: HomeIcon, name: 'Dashboard', path: '/gestor' },
+  { icon: StatsIcon, name: 'Estatísticas', path: '/gestor/estatisticas' },
+  { icon: UsersIcon, name: 'Usuários', path: '/gestor/usuarios' },
+  { icon: NotificationIcon, name: 'Notificações', path: '/gestor/notificacoes' },
+  { icon: ProfileIcon, name: 'Meu Perfil', path: '/gestor/perfil' },
+];
+
+export default function GestorSidebar() {
+  const { logout } = useAuth();
   const pathname = usePathname();
-
-  // Menu dinâmico baseado no tipo de usuário
-  const getMenuItems = () => {
-    const baseItems = [
-      { icon: HomeIcon, name: 'Dashboard', path: '/dashboard' }
-    ];
-
-    // Redireciona para a área específica do usuário baseado no tipo
-    if (user?.tipo === 'CLIENTE') {
-      baseItems[0].path = '/cliente';
-      baseItems.push(
-        { icon: TicketsIcon, name: 'Meus Chamados', path: '/cliente/meus-chamados' },
-        { icon: ProfileIcon, name: 'Meu Perfil', path: '/cliente/perfil' }
-      );
-    } else if (user?.tipo === 'TECNICO') {
-      baseItems[0].path = '/tecnico';
-      baseItems.push(
-        { icon: TicketsIcon, name: 'Chamados', path: '/tecnico/chamados' },
-        { icon: ProfileIcon, name: 'Meu Perfil', path: '/tecnico/perfil' }
-      );
-    } else if (user?.tipo === 'GESTOR') {
-      baseItems[0].path = '/gestor';
-      baseItems.push(
-        { icon: TicketsIcon, name: 'Estatísticas', path: '/gestor/estatisticas' },
-        { icon: ProfileIcon, name: 'Meu Perfil', path: '/gestor/perfil' }
-      );
-    } else {
-      // Menu padrão se o tipo não for reconhecido
-      baseItems.push(
-        { icon: ProfileIcon, name: 'Perfil', path: '/dashboard/perfil' }
-      );
-    }
-
-    return baseItems;
-  };
-
-  const menuItems = getMenuItems();
 
   return (
     <div className="w-64 bg-white border-r border-slate-200 h-screen">
@@ -91,20 +75,6 @@ export default function Sidebar() {
             <path d="M12 8v4l3 3" />
           </svg>
           <span className="text-xl font-bold text-slate-900">HelpDesk</span>
-        </div>
-      </div>
-
-      {/* Informações do usuário */}
-      <div className="px-6 py-4 border-b border-slate-200">
-        <div className="flex flex-col items-center">
-          <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mb-2">
-            {user?.nome?.charAt(0).toUpperCase() || (user?.email?.charAt(0).toUpperCase() || 'U')}
-          </div>
-          <h3 className="font-medium">{user?.nome || (user?.email?.split('@')[0] || 'Usuário')}</h3>
-          <p className="text-sm text-slate-500">{user?.email}</p>
-          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full mt-1">
-            {user?.tipo || 'Usuário'}
-          </span>
         </div>
       </div>
 

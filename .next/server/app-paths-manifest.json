@@ -1,8 +1,11 @@
 {
-  "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/dashboard/meus-chamados/page": "app/dashboard/meus-chamados/page.js",
+  "/not-found": "app/not-found.js",
+  "/page": "app/page.js",
+  "/cliente/perfil/page": "app/cliente/perfil/page.js",
+  "/cliente/meus-chamados/page": "app/cliente/meus-chamados/page.js",
+  "/cliente/abrir-chamado/page": "app/cliente/abrir-chamado/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/abrir-chamado/page": "app/dashboard/abrir-chamado/page.js",
-  "/dashboard/notificacoes/page": "app/dashboard/notificacoes/page.js",
-  "/dashboard/perfil/page": "app/dashboard/perfil/page.js"
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/gestor/page": "app/gestor/page.js",
+  "/tecnico/page": "app/tecnico/page.js"
 }
