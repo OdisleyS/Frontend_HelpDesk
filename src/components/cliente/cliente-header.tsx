@@ -10,14 +10,8 @@ export default function ClienteHeader() {
   return (
     <header className="bg-white border-b border-slate-200 p-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold text-slate-800">
-          {/* Título dinâmico conforme a página atual */}
-          {window.location.pathname === '/cliente' && 'Dashboard do Cliente'}
-          {window.location.pathname === '/cliente/meus-chamados' && 'Meus Chamados'}
-          {window.location.pathname === '/cliente/abrir-chamado' && 'Abrir Chamado'}
-          {window.location.pathname === '/cliente/notificacoes' && 'Notificações'}
-          {window.location.pathname === '/cliente/perfil' && 'Meu Perfil'}
-        </h1>
+        {/* Título removido - deixando apenas o espaço vazio */}
+        <div></div>
         
         <div className="flex items-center gap-3">
           {/* Indicador de status do usuário */}

@@ -13,6 +13,7 @@ const HomeIcon = () => (
   </svg>
 );
 
+
 const TicketsIcon = () => (
   <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -43,10 +44,9 @@ const LogoutIcon = () => (
   </svg>
 );
 
-// Definição de itens do menu
+// Definição de itens do menu - Removido o Dashboard
 const menuItems = [
-  { icon: HomeIcon, name: 'Dashboard', path: '/cliente' },
-  { icon: TicketsIcon, name: 'Meus Chamados', path: '/cliente/meus-chamados' },
+  { icon: HomeIcon, name: 'Meus Chamados', path: '/cliente/meus-chamados' },
   { icon: AddIcon, name: 'Abrir Chamado', path: '/cliente/abrir-chamado' },
   { icon: NotificationIcon, name: 'Notificações', path: '/cliente/notificacoes' },
   { icon: ProfileIcon, name: 'Meu Perfil', path: '/cliente/perfil' },

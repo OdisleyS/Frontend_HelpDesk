@@ -24,6 +24,9 @@ export default function ClienteLayout({
       } else if (user && user.tipo !== 'CLIENTE') {
         // Se não for cliente, redirecionar para o dashboard apropriado
         router.push('/');
+      } else if (isAuthenticated && window.location.pathname === '/cliente') {
+        // Redirecionar da página raiz '/cliente' para 'meus-chamados'
+        router.push('/cliente/meus-chamados');
       }
     }
   }, [isAuthenticated, isLoading, router, user]);

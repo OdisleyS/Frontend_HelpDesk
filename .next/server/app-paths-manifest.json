@@ -1,5 +1,7 @@
 {
-  "/not-found": "app/not-found.js",
+  "/page": "app/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
   "/cliente/meus-chamados/page": "app/cliente/meus-chamados/page.js",
-  "/cliente/chamado/[id]/page": "app/cliente/chamado/[id]/page.js"
+  "/cliente/abrir-chamado/page": "app/cliente/abrir-chamado/page.js",
+  "/cliente/notificacoes/page": "app/cliente/notificacoes/page.js"
 }

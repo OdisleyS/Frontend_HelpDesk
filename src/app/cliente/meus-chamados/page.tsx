@@ -129,11 +129,19 @@ const formatDate = (dateString: string) => {
 
 export default function MeusChamadosPage() {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(StatusFilter.TODOS);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [welcomeMessage, setWelcomeMessage] = useState('');
+  
+  // Definir a mensagem de boas-vindas quando o usuário estiver disponível
+  useEffect(() => {
+    if (user) {
+      setWelcomeMessage(`Bem-vindo(a), ${user.nome || user?.email?.split('@')[0]}!`);
+    }
+  }, [user]);
   
   // Carregar chamados
   useEffect(() => {
@@ -179,13 +187,20 @@ export default function MeusChamadosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho da página */}
+      {/* Cabeçalho com mensagem de boas-vindas */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">{welcomeMessage}</h1>
+      </div>
+      {/* Cabeçalho da página de chamados */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Meus Chamados</h2>
+          <h2 className="text-xl font-bold text-slate-900">Meus Chamados</h2>
           <p className="text-slate-600 mt-1">Visualize e gerencie seus chamados de suporte.</p>
         </div>
         <Button onClick={() => router.push('/cliente/abrir-chamado')}>
+          <svg className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
           Novo Chamado
         </Button>
       </div>
@@ -270,6 +285,9 @@ export default function MeusChamadosPage() {
                 : `Você não possui chamados com status "${StatusFilter[statusFilter].replace('_', ' ').toLowerCase()}".`}
             </p>
             <Button className="mt-4" onClick={() => router.push('/cliente/abrir-chamado')}>
+              <svg className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
               Abrir Novo Chamado
             </Button>
           </CardContent>

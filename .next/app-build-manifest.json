@@ -1,9 +1,14 @@
 {
   "pages": {
-    "/cliente/page": [
+    "/cliente/meus-chamados/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/cliente/page.js"
+      "static/chunks/app/cliente/meus-chamados/page.js"
+    ],
+    "/cliente/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/cliente/layout.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -11,15 +16,10 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/cliente/layout": [
+    "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/cliente/layout.js"
-    ],
-    "/cliente/meus-chamados/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/cliente/meus-chamados/page.js"
+      "static/chunks/app/page.js"
     ],
     "/(auth)/layout": [
       "static/chunks/webpack.js",
@@ -31,11 +31,6 @@
       "static/chunks/main-app.js",
       "static/chunks/app/(auth)/login/page.js"
     ],
-    "/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/page.js"
-    ],
     "/dashboard/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -46,25 +41,20 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/layout.js"
     ],
-    "/cliente/perfil/page": [
+    "/cliente/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/cliente/perfil/page.js"
+      "static/chunks/app/cliente/page.js"
     ],
     "/cliente/abrir-chamado/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/cliente/abrir-chamado/page.js"
     ],
-    "/cliente/chamado/[id]/page": [
+    "/cliente/notificacoes/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/cliente/chamado/[id]/page.js"
-    ],
-    "/not-found": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/not-found.js"
+      "static/chunks/app/cliente/notificacoes/page.js"
     ]
   }
 }
