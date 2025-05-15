@@ -19,9 +19,14 @@ interface Ticket {
   categoria: string;
   abertoEm: string;
   prazoSla: string;
+  tecnico: {
+    id: number;
+    nome: string;
+    email: string;
+  } | null;
 }
 
-// Componentes de status e prioridade (reutilizados da página do cliente)
+// Componente de status visuais
 const StatusBadge = ({ status }: { status: string }) => {
   const getStatusColorClasses = (status: string) => {
     switch (status) {
@@ -118,21 +123,22 @@ const formatDate = (dateString: string) => {
 export default function TecnicoChamadosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [statusFilter, setStatusFilter] = useState<string>(searchParams?.get('status') || 'ABERTO');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [assigningId, setAssigningId] = useState<number | null>(null);
-  
+  const [assignError, setAssignError] = useState<string | null>(null);
+
   // Carregar chamados
   useEffect(() => {
     const loadTickets = async () => {
       if (!token) return;
-      
+
       setIsLoading(true);
       setError('');
-      
+
       try {
         const data = await api.tickets.listByStatus(statusFilter, token);
         setTickets(data);
@@ -143,28 +149,57 @@ export default function TecnicoChamadosPage() {
         setIsLoading(false);
       }
     };
-    
+
     loadTickets();
   }, [statusFilter, token]);
 
   // Função para assumir um chamado
   const handleAssignTicket = async (id: number) => {
     if (!token) return;
-    
+
     setAssigningId(id);
-    
+    setAssignError(null);
+
     try {
       await api.tickets.assignTecnico(id, token);
-      
+
       // Atualizar a lista de chamados
-      const updatedTickets = tickets.filter(ticket => ticket.id !== id);
-      setTickets(updatedTickets);
-      
+      setTickets(prevTickets =>
+        prevTickets.map(ticket =>
+          ticket.id === id
+            ? {
+              ...ticket,
+              status: 'EM_ATENDIMENTO',
+              tecnico: {
+                id: user?.id || 0,
+                nome: user?.nome || user?.email?.split('@')[0] || '',
+                email: user?.email || ''
+              }
+            }
+            : ticket
+        )
+      );
+
       // Redirecionar para a página de detalhe do chamado
       router.push(`/tecnico/chamados/${id}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao assumir chamado:', error);
-      setError('Não foi possível assumir o chamado. Tente novamente mais tarde.');
+
+      // Verificar se o erro é que o chamado já está atribuído
+      if (error.message && error.message.includes('já está sendo atendido')) {
+        setAssignError(error.message);
+
+        // Atualizar apenas o chamado que deu erro para mostrar o técnico atual
+        const updatedTicket = await api.tickets.getById(id, token);
+        setTickets(prevTickets =>
+          prevTickets.map(ticket =>
+            ticket.id === id ? { ...ticket, tecnico: updatedTicket.tecnico } : ticket
+          )
+        );
+      } else {
+        setError('Não foi possível assumir o chamado. Tente novamente mais tarde.');
+      }
+
       setAssigningId(null);
     }
   };
@@ -182,35 +217,35 @@ export default function TecnicoChamadosPage() {
       {/* Filtros */}
       <div className="bg-white p-4 rounded-lg border border-slate-200">
         <div className="flex flex-wrap gap-2">
-          <Button 
+          <Button
             variant={statusFilter === 'ABERTO' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('ABERTO')}
             size="sm"
           >
             Abertos
           </Button>
-          <Button 
+          <Button
             variant={statusFilter === 'EM_ANALISE' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('EM_ANALISE')}
             size="sm"
           >
             Em Análise
           </Button>
-          <Button 
+          <Button
             variant={statusFilter === 'EM_ATENDIMENTO' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('EM_ATENDIMENTO')}
             size="sm"
           >
             Em Atendimento
           </Button>
-          <Button 
+          <Button
             variant={statusFilter === 'AGUARDANDO_CLIENTE' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('AGUARDANDO_CLIENTE')}
             size="sm"
           >
             Aguardando Cliente
           </Button>
-          <Button 
+          <Button
             variant={statusFilter === 'RESOLVIDO' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('RESOLVIDO')}
             size="sm"
@@ -224,6 +259,13 @@ export default function TecnicoChamadosPage() {
       {error && (
         <Alert variant="destructive" title="Erro">
           {error}
+        </Alert>
+      )}
+
+      {/* Mensagem de erro específica para atribuição */}
+      {assignError && (
+        <Alert variant="destructive" title="Erro ao atribuir chamado" onClose={() => setAssignError(null)}>
+          {assignError}
         </Alert>
       )}
 
@@ -278,16 +320,30 @@ export default function TecnicoChamadosPage() {
                       {ticket.prazoSla && (
                         <div>Prazo: {formatDate(ticket.prazoSla)}</div>
                       )}
+                      {/* Mostrar informação do técnico responsável se existir */}
+                      {ticket.tecnico && (
+                        <div className="mt-1 text-blue-600 font-medium">
+                          Técnico: {ticket.tecnico.nome || ticket.tecnico.email}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Button 
-                      onClick={() => handleAssignTicket(ticket.id)}
-                      disabled={assigningId === ticket.id}
-                    >
-                      {assigningId === ticket.id ? 'Assumindo...' : 'Assumir Chamado'}
-                    </Button>
-                    <Button 
+                    {/* Mostrar botão "Assumir" apenas se não houver técnico */}
+                    {!ticket.tecnico && ticket.status === 'ABERTO' ? (
+                      <Button
+                        onClick={() => handleAssignTicket(ticket.id)}
+                        disabled={assigningId === ticket.id}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        {assigningId === ticket.id ? 'Assumindo...' : 'Assumir Chamado'}
+                      </Button>
+                    ) : ticket.tecnico && ticket.tecnico.email !== user?.email ? (
+                      <div className="text-xs text-slate-500 italic bg-slate-50 p-2 rounded border border-slate-200 text-center">
+                        Atribuído a {ticket.tecnico.nome || ticket.tecnico.email}
+                      </div>
+                    ) : null}
+                    <Button
                       variant="outline"
                       onClick={() => router.push(`/tecnico/chamados/${ticket.id}`)}
                     >
@@ -304,6 +360,7 @@ export default function TecnicoChamadosPage() {
       {/* Alerta informativo */}
       <Alert variant="info" title="Dica">
         Chamados com prioridade alta ou com prazo SLA próximo de vencer devem ser priorizados.
+        Apenas chamados com status "Aberto" podem ser assumidos.
       </Alert>
     </div>
   );

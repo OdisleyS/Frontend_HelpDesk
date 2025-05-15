@@ -136,14 +136,6 @@ export default function MeusChamadosPage() {
   const [error, setError] = useState('');
   const [welcomeMessage, setWelcomeMessage] = useState('');
   
-  // Definir a mensagem de boas-vindas quando o usuário estiver disponível
-  useEffect(() => {
-    if (user) {
-      setWelcomeMessage(`Bem-vindo(a), ${user.nome || user?.email?.split('@')[0]}!`);
-    }
-  }, [user]);
-  
-  // Carregar chamados
   useEffect(() => {
     const loadTickets = async () => {
       if (!token) return;
