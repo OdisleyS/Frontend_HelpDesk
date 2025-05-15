@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { api } from '@/lib/api';
@@ -29,6 +28,7 @@ interface Ticket {
   } | null;
   abertoEm: string;
   prazoSla: string;
+  fechadoEm?: string;
 }
 
 // Interface para histórico do ticket
@@ -44,7 +44,7 @@ interface TicketHistory {
   criadoEm: string;
 }
 
-// Componentes de status e prioridade (reutilizados)
+// Componentes de status e prioridade
 const StatusBadge = ({ status }: { status: string }) => {
   const getStatusColorClasses = (status: string) => {
     switch (status) {
@@ -164,11 +164,18 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
         setTicket(ticketData);
         setSelectedStatus(ticketData.status);
         
-        // Buscar histórico do chamado
-        const historyData = await api.tickets.getHistory(Number(params.id), token);
-        setHistory(historyData);
+        // Tentar buscar histórico, mas não falhar se der erro
+        try {
+          const historyData = await api.tickets.getHistory(Number(params.id), token);
+          setHistory(historyData);
+        } catch (historyError) {
+          console.error('Erro ao obter histórico:', historyError);
+          // Não falha o carregamento principal se o histórico falhar
+          setHistory([]);
+        }
       } catch (error) {
         console.error('Erro ao carregar detalhes do chamado:', error);
+        // Se o erro for aqui, é mais grave
         setError('Não foi possível carregar os detalhes do chamado. Tente novamente mais tarde.');
       } finally {
         setIsLoading(false);
@@ -183,6 +190,7 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
     if (!token || !ticket) return;
     
     setIsUpdating(true);
+    setError('');
     
     try {
       await api.tickets.assignTecnico(ticket.id, token);
@@ -200,12 +208,29 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
       
       setSuccessMessage('Chamado assumido com sucesso!');
       
-      // Recarregar o histórico
-      const historyData = await api.tickets.getHistory(Number(params.id), token);
-      setHistory(historyData);
-    } catch (error) {
+      // Tentar recarregar o histórico
+      try {
+        const historyData = await api.tickets.getHistory(Number(params.id), token);
+        setHistory(historyData);
+      } catch (historyError) {
+        console.error('Erro ao carregar histórico após assumir:', historyError);
+      }
+    } catch (error: any) {
       console.error('Erro ao assumir chamado:', error);
-      setError('Não foi possível assumir o chamado. Tente novamente mais tarde.');
+      
+      if (error.message && error.message.includes('já está sendo atendido')) {
+        setError(error.message);
+        
+        // Recarregar os dados do chamado
+        try {
+          const ticketData = await api.tickets.getById(Number(params.id), token);
+          setTicket(ticketData);
+        } catch (refreshError) {
+          console.error('Erro ao atualizar dados do ticket:', refreshError);
+        }
+      } else {
+        setError('Não foi possível assumir o chamado. Tente novamente mais tarde.');
+      }
     } finally {
       setIsUpdating(false);
     }
@@ -216,6 +241,7 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
     if (!token || !ticket || selectedStatus === ticket.status) return;
     
     setIsUpdating(true);
+    setError('');
     
     try {
       await api.tickets.updateStatus(ticket.id, selectedStatus, token);
@@ -225,9 +251,13 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
       
       setSuccessMessage(`Status atualizado para ${selectedStatus.replace('_', ' ').toLowerCase()}!`);
       
-      // Recarregar o histórico
-      const historyData = await api.tickets.getHistory(Number(params.id), token);
-      setHistory(historyData);
+      // Tentar recarregar o histórico
+      try {
+        const historyData = await api.tickets.getHistory(Number(params.id), token);
+        setHistory(historyData);
+      } catch (historyError) {
+        console.error('Erro ao carregar histórico após atualizar status:', historyError);
+      }
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
       setError('Não foi possível atualizar o status do chamado. Tente novamente mais tarde.');
@@ -241,6 +271,7 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
     if (!token || !ticket) return;
     
     setIsUpdating(true);
+    setError('');
     
     try {
       await api.tickets.resolveTicket(ticket.id, token);
@@ -250,9 +281,13 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
       
       setSuccessMessage('Chamado resolvido com sucesso!');
       
-      // Recarregar o histórico
-      const historyData = await api.tickets.getHistory(Number(params.id), token);
-      setHistory(historyData);
+      // Tentar recarregar o histórico
+      try {
+        const historyData = await api.tickets.getHistory(Number(params.id), token);
+        setHistory(historyData);
+      } catch (historyError) {
+        console.error('Erro ao carregar histórico após resolver:', historyError);
+      }
     } catch (error) {
       console.error('Erro ao resolver chamado:', error);
       setError('Não foi possível resolver o chamado. Tente novamente mais tarde.');
@@ -261,17 +296,17 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
     }
   };
 
-  // Função para adicionar comentário (necessita implementação no backend)
+  // Função para adicionar comentário
   const handleAddComment = async () => {
     if (!token || !ticket || !comment.trim()) return;
     
     setIsUpdating(true);
+    setError('');
     
     try {
-      // Esta função não existe no seu backend ainda, você precisará implementá-la
-      // await api.tickets.addComment(ticket.id, comment, token);
+      await api.tickets.addComment(ticket.id, comment, token);
       
-      // Atualizar o histórico localmente (simulação)
+      // Atualizar o histórico localmente
       setHistory(prev => [
         ...prev,
         {
@@ -289,6 +324,14 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
       
       setComment('');
       setSuccessMessage('Comentário adicionado com sucesso!');
+      
+      // Tentar recarregar o histórico
+      try {
+        const historyData = await api.tickets.getHistory(Number(params.id), token);
+        setHistory(historyData);
+      } catch (historyError) {
+        console.error('Erro ao carregar histórico após comentar:', historyError);
+      }
     } catch (error) {
       console.error('Erro ao adicionar comentário:', error);
       setError('Não foi possível adicionar o comentário. Tente novamente mais tarde.');
@@ -306,15 +349,18 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
     );
   }
 
-  // Renderização em caso de erro
-  if (error) {
+  // Renderização em caso de erro total (sem ticket)
+  if (error && !ticket) {
     return (
       <Alert variant="destructive" title="Erro">
         {error}
         <div className="mt-4">
-          <Button onClick={() => router.push('/tecnico/chamados')}>
-            Voltar para Lista de Chamados
-          </Button>
+          <button 
+            onClick={() => router.back()} 
+            className="px-4 py-2 bg-white border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50"
+          >
+            Voltar
+          </button>
         </div>
       </Alert>
     );
@@ -326,18 +372,25 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
       <Alert variant="destructive" title="Chamado não encontrado">
         O chamado solicitado não foi encontrado ou você não tem permissão para visualizá-lo.
         <div className="mt-4">
-          <Button onClick={() => router.push('/tecnico/chamados')}>
-            Voltar para Lista de Chamados
-          </Button>
+          <button 
+            onClick={() => router.back()} 
+            className="px-4 py-2 bg-white border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50"
+          >
+            Voltar
+          </button>
         </div>
       </Alert>
     );
   }
 
   // Verificar se é possível realizar ações no chamado
-  const canAssign = ticket.status === 'ABERTO' && (!ticket.tecnico || ticket.tecnico.id !== user?.id);
-  const canUpdateStatus = ticket.tecnico && ticket.tecnico.id === user?.id && ticket.status !== 'RESOLVIDO' && ticket.status !== 'FECHADO';
-  const canResolve = ticket.tecnico && ticket.tecnico.id === user?.id && ticket.status !== 'RESOLVIDO' && ticket.status !== 'FECHADO';
+  const canAssign = ticket.status === 'ABERTO' && !ticket.tecnico;
+  const canUpdateStatus = (ticket.tecnico && ticket.tecnico.email === user?.email && 
+                         ticket.status !== 'RESOLVIDO' && ticket.status !== 'FECHADO') ||
+                         (!ticket.tecnico && user?.tipo === 'TECNICO');
+  const canResolve = (ticket.tecnico && ticket.tecnico.email === user?.email && 
+                    ticket.status !== 'RESOLVIDO' && ticket.status !== 'FECHADO') ||
+                    (!ticket.tecnico && user?.tipo === 'TECNICO');
   const canAddComment = ticket.status !== 'FECHADO';
 
   return (
@@ -345,15 +398,25 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
       {/* Cabeçalho com botão de voltar */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900">Chamado #{ticket.id}</h2>
-        <Button variant="outline" onClick={() => router.push('/tecnico/chamados')}>
+        <button 
+          onClick={() => router.back()} 
+          className="px-4 py-2 bg-white border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50"
+        >
           Voltar
-        </Button>
+        </button>
       </div>
 
       {/* Mensagem de sucesso */}
       {successMessage && (
         <Alert variant="success" title="Sucesso" onClose={() => setSuccessMessage('')}>
           {successMessage}
+        </Alert>
+      )}
+
+      {/* Mensagem de erro (se houver erro mas também tivermos ticket) */}
+      {error && ticket && (
+        <Alert variant="destructive" title="Erro" onClose={() => setError('')}>
+          {error}
         </Alert>
       )}
 
@@ -384,12 +447,25 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
               <p className="text-slate-900">{ticket.cliente.nome || ticket.cliente.email}</p>
             </div>
             <div>
+              <h3 className="text-sm font-medium text-slate-500">Técnico responsável</h3>
+              <p className="text-slate-900">
+                {ticket.tecnico 
+                  ? (ticket.tecnico.nome || ticket.tecnico.email) 
+                  : <span className="text-slate-400">Não atribuído</span>}
+              </p>
+            </div>
+            <div>
               <h3 className="text-sm font-medium text-slate-500">Aberto em</h3>
               <p className="text-slate-900">{formatDate(ticket.abertoEm)}</p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-slate-500">Prazo SLA</h3>
-              <p className="text-slate-900">{formatDate(ticket.prazoSla)}</p>
+              <p className="text-slate-900">
+                {formatDate(ticket.prazoSla)}
+                <span className="block text-xs text-slate-600 mt-1">
+                  (Prazo definido automaticamente pelo sistema com base na categoria e prioridade)
+                </span>
+              </p>
             </div>
           </div>
 
@@ -407,31 +483,31 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
             </div>
             
             <div className="flex gap-2">
-              {/* Botão para assumir chamado */}
+              {/* Botão para assumir chamado - Usando o estilo exato da screenshot */}
               {canAssign && (
-                <Button 
+                <button 
                   onClick={handleAssignTicket}
                   disabled={isUpdating}
+                  className="px-4 py-2 font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isUpdating ? 'Processando...' : 'Assumir Chamado'}
-                </Button>
+                </button>
               )}
               
-              {/* Botão para resolver chamado */}
+              {/* Botão para resolver chamado - Usando o estilo exato da screenshot */}
               {canResolve && (
-                <Button 
-                  variant="success"
+                <button 
                   onClick={handleResolveTicket}
                   disabled={isUpdating}
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="px-4 py-2 font-medium text-white bg-green-600 hover:bg-green-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isUpdating ? 'Processando...' : 'Resolver Chamado'}
-                </Button>
+                </button>
               )}
             </div>
           </div>
           
-          {/* Seletor de Status */}
+          {/* Seletor de Status - Usando o estilo exato da screenshot */}
           {canUpdateStatus && (
             <div className="flex gap-4 items-center w-full border-t border-slate-200 pt-4">
               <div className="text-sm font-medium text-slate-700">Atualizar Status:</div>
@@ -445,16 +521,28 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
                 <option value="EM_ATENDIMENTO">Em Atendimento</option>
                 <option value="AGUARDANDO_CLIENTE">Aguardando Cliente</option>
               </select>
-              <Button 
+              <button 
                 onClick={handleStatusChange}
                 disabled={isUpdating || selectedStatus === ticket.status}
+                className="px-4 py-2 font-medium text-white bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isUpdating ? 'Atualizando...' : 'Atualizar'}
-              </Button>
+              </button>
             </div>
           )}
         </CardFooter>
       </Card>
+
+      {/* Mensagem informativa quando o chamado já está atribuído a outro técnico */}
+      {ticket.tecnico && ticket.tecnico.email !== user?.email && (
+        <Alert 
+          variant="info" 
+          title="Chamado já atribuído"
+        >
+          Este chamado já está sendo atendido por {ticket.tecnico.nome || ticket.tecnico.email}.
+          Apenas o técnico responsável pode modificar o status ou resolver este chamado.
+        </Alert>
+      )}
 
       {/* Área de comentários */}
       {canAddComment && (
@@ -466,19 +554,19 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Digite um comentário para o cliente..."
+              placeholder="Digite um comentário ou instrução para o cliente..."
               className="w-full border border-slate-300 rounded-md p-3 min-h-[100px]"
               disabled={isUpdating}
             ></textarea>
           </CardContent>
           <CardFooter>
-            <Button 
+            <button 
               onClick={handleAddComment}
               disabled={isUpdating || !comment.trim()}
-              fullWidth={true}
+              className="w-full px-4 py-2 font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isUpdating ? 'Enviando...' : 'Adicionar Comentário'}
-            </Button>
+            </button>
           </CardFooter>
         </Card>
       )}
@@ -518,6 +606,12 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
           )}
         </CardContent>
       </Card>
+      
+      {/* Informações adicionais sobre o SLA */}
+      <Alert variant="info" title="Sobre o Prazo SLA">
+        O prazo SLA (Service Level Agreement) é calculado automaticamente pelo sistema com base na categoria e prioridade do chamado.
+        Este prazo representa o tempo máximo para a resolução do chamado de acordo com as políticas de atendimento.
+      </Alert>
     </div>
   );
 }

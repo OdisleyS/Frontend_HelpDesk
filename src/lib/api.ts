@@ -1,278 +1,426 @@
 // src/lib/api.ts
 
-// Configuração base da API
-const API_BASE_URL =  process.env.NEXT_PUBLIC_API_URL;
+// Vamos ampliar a API para incluir as funções necessárias para técnicos
 
-// Interface para tratamento de erros
-export interface ApiError {
-  message: string;
-  status: number;
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
+// Tipos de requisição para autenticação
+export interface LoginRequest {
+  email: string;
+  senha: string;
 }
 
-// Função utilitária para fazer requisições HTTP
-const fetchWithAuth = async (url: string, options: RequestInit = {}, token?: string) => {
-  // Adicionar token de autenticação aos headers, se fornecido
-  if (token) {
-    options.headers = {
-      ...options.headers,
-      'Authorization': `Bearer ${token}`
-    };
-  }
+export interface RegisterRequest {
+  email: string;
+  senha: string;
+}
 
-  try {
-    // Log para debugging
-    console.log(`API Request: ${options.method || 'GET'} ${url}`);
-    
-    const response = await fetch(`${API_BASE_URL}${url}`, {
-      ...options,
-      credentials: 'include',
+export interface VerifyRequest {
+  email: string;
+  codigo: string;
+}
+
+// Funções de autenticação
+const auth = {
+  login: async (data: LoginRequest): Promise<{ token: string }> => {
+    const response = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
     });
-    
-    // Log para debugging
-    console.log('Response status:', response.status);
 
-    // Verificar se a resposta não é bem-sucedida
     if (!response.ok) {
-      let errorMessage = 'Ocorreu um erro ao processar a requisição.';
-      
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-        console.error('API Error Data:', errorData);
-      } catch (e) {
-        console.error('Não foi possível parsear o corpo da resposta de erro:', e);
-      }
-      
+      const error = await response.json();
       throw {
-        message: errorMessage,
-        status: response.status
+        message: error.message || 'Falha no login',
+        status: response.status,
       };
     }
 
-    // Verificar se a resposta tem conteúdo
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      const data = await response.json();
-      console.log('API Response Data:', data);
-      return data;
+    return response.json();
+  },
+
+  register: async (data: RegisterRequest): Promise<string> => {
+    const response = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw {
+        message: error.message || 'Falha no registro',
+        status: response.status,
+      };
     }
-    
-    return await response.text();
+
+    return response.text();
+  },
+
+  verifyCode: async (data: VerifyRequest): Promise<string> => {
+    const response = await fetch(`${BASE_URL}/auth/verify-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw {
+        message: error.message || 'Falha na verificação',
+        status: response.status,
+      };
+    }
+
+    return response.text();
+  },
+};
+
+// Funções de categorias
+const categories = {
+  list: async (token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/categories`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao listar categorias');
+    }
+
+    return response.json();
+  },
+
+  create: async (data: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/categories`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao criar categoria');
+    }
+
+    return response.json();
+  },
+
+  update: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/categories/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao atualizar categoria');
+    }
+
+    return response.json();
+  },
+};
+
+// Funções de departamentos
+const departments = {
+  list: async (token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/departamentos`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao listar departamentos');
+    }
+
+    return response.json();
+  },
+
+  create: async (data: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/departamentos`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao criar departamento');
+    }
+
+    return response.json();
+  },
+
+  update: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/departamentos/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao atualizar departamento');
+    }
+
+    return response.json();
+  },
+};
+
+// Funções de tickets (chamados)
+const tickets = {
+  listByStatus: async (status: string, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/tickets?status=${status}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Falha ao listar chamados com status ${status}`);
+    }
+
+    return response.json();
+  },
+
+getById: async (id: number, token: string): Promise<any> => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao carregar detalhes do chamado');
+    }
+
+    return await response.json();
   } catch (error) {
-    console.error('API Error:', error);
-    
-    if ((error as ApiError).status) {
+    console.error('Erro ao buscar detalhes do chamado:', error);
+    throw error;
+  }
+},
+
+  getHistory: async (id: number, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/history`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Falha ao obter histórico do chamado #${id}`);
+    }
+
+    return response.json();
+  },
+
+  create: async (data: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/tickets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao criar chamado');
+    }
+
+    return response.json();
+  },
+
+updateStatus: async (id: number, status: string, token: string): Promise<void> => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/status`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ novoStatus: status })
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao atualizar status do chamado');
+    }
+  } catch (error) {
+    console.error('Erro ao atualizar status:', error);
+    throw error;
+  }
+},
+
+  assignTecnico: async (id: number, token: string): Promise<void> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/assign`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const message = errorData.message || 
+                        (response.status === 400 
+                          ? 'Este chamado não pode ser assumido no momento.'
+                          : 'Não foi possível assumir o chamado.');
+                          
+        throw new Error(message);
+      }
+    } catch (error) {
+      console.error('Erro ao assumir chamado:', error);
+      throw error; 
+    }
+  },
+
+  resolveTicket: async (id: number, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/resolve`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Falha ao resolver chamado #${id}`);
+    }
+
+    return response.json();
+  },
+
+  cancelTicket: async (id: number, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/cancel`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Falha ao cancelar chamado #${id}`);
+    }
+
+    return response.json();
+  },
+
+  getMyTickets: async (token: string): Promise<any[]> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/my-tickets`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar seus chamados.');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao buscar chamados do técnico:', error);
       throw error;
     }
-    
-    throw {
-      message: 'Erro de conexão com o servidor. Verifique sua conexão de internet.',
-      status: 0
-    };
-  }
-};
+  },
 
-// API para autenticação
-const auth = {
-  // Login
-  login: async (data: { email: string; senha: string }) => {
-    return await fetchWithAuth('/auth/login', {
+  addComment: async (id: number, comment: string, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/comment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ comment }),
     });
+
+    if (!response.ok) {
+      throw new Error(`Falha ao adicionar comentário ao chamado #${id}`);
+    }
+
+    return response.json();
   },
-  
-  // Registro
-  register: async (data: { email: string; senha: string }) => {
-    return await fetchWithAuth('/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-  },
-  
-  // Verificação de código
-  verifyCode: async (data: { email: string; codigo: string }) => {
-    return await fetchWithAuth('/auth/verify-code', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-  }
 };
 
-// API para categorias
-const categories = {
-  // Listar todas as categorias
-  list: async (token: string) => {
-    return await fetchWithAuth('/api/v1/categories', {}, token);
-  },
-  
-  // Criar categoria
-  create: async (data: { nome: string; ativo: boolean }, token: string) => {
-    return await fetchWithAuth('/api/v1/categories', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    }, token);
-  },
-  
-  // Atualizar categoria
-  update: async (id: number, data: { nome: string; ativo: boolean }, token: string) => {
-    return await fetchWithAuth(`/api/v1/categories/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    }, token);
-  }
-};
-
-// API para departamentos
-const departments = {
-  // Listar todos os departamentos
-  list: async (token: string) => {
-    return await fetchWithAuth('/api/v1/departamentos', {}, token);
-  },
-  
-  // Criar departamento
-  create: async (data: { nome: string; ativo: boolean }, token: string) => {
-    return await fetchWithAuth('/api/v1/departamentos', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    }, token);
-  },
-  
-  // Atualizar departamento
-  update: async (id: number, data: { nome: string; ativo: boolean }, token: string) => {
-    return await fetchWithAuth(`/api/v1/departamentos/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    }, token);
-  }
-};
-
-// API para usuários
+// Funções de usuários
 const users = {
-  // Listar todos os usuários (paginados)
   list: async (token: string) => {
-    return await fetchWithAuth('/api/v1/admin/users', {}, token);
+    const response = await fetch(`${BASE_URL}/api/v1/admin/users`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao listar usuários');
+    }
+
+    return response.json();
   },
-  
-  // Criar usuário
-  create: async (data: { nome: string; email: string; senha: string; tipo: string }, token: string) => {
-    return await fetchWithAuth('/api/v1/admin/users', {
+
+  create: async (data: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/admin/users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify(data),
-    }, token);
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao criar usuário');
+    }
+
+    return response.json();
   },
-  
-  // Atualizar status de usuário (ativar/desativar)
+
   updateStatus: async (id: number, ativo: boolean, token: string) => {
-    return await fetchWithAuth(`/api/v1/admin/users/${id}/status?ativo=${ativo}`, {
-      method: 'PUT',
-    }, token);
-  }
-};
-
-// API para tickets (chamados)
-const tickets = {
-  // Listar tickets por status
-  listByStatus: async (status: string, token: string) => {
-    return await fetchWithAuth(`/api/v1/tickets?status=${status}`, {}, token);
-  },
-  
-  // Criar ticket
-  create: async (data: { 
-    titulo: string; 
-    descricao: string; 
-    categoriaId: number; 
-    departamentoId: number; 
-    prioridade: string 
-  }, token: string) => {
-    return await fetchWithAuth('/api/v1/tickets', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    }, token);
-  },
-  
-  // Obter detalhes de um chamado específico
-  getById: async (id: number, token: string) => {
-    return await fetchWithAuth(`/api/v1/tickets/${id}`, {}, token);
-  },
-  
-  // Obter histórico de um chamado
-  getHistory: async (id: number, token: string) => {
-    return await fetchWithAuth(`/api/v1/tickets/${id}/history`, {}, token);
-  },
-  
-  // Atualizar status do ticket
-  updateStatus: async (id: number, novoStatus: string, token: string) => {
-    return await fetchWithAuth(`/api/v1/tickets/${id}/status`, {
+    const response = await fetch(`${BASE_URL}/api/v1/admin/users/${id}/status?ativo=${ativo}`, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ novoStatus }),
-    }, token);
+    });
+
+    if (!response.ok) {
+      throw new Error(`Falha ao atualizar status do usuário #${id}`);
+    }
+
+    return response.json();
   },
-  
-  // Atribuir técnico ao ticket
-  assignTecnico: async (id: number, token: string) => {
-    return await fetchWithAuth(`/api/v1/tickets/${id}/assign`, {
-      method: 'PUT',
-    }, token);
-  },
-  
-  // Resolver ticket
-  resolveTicket: async (id: number, token: string) => {
-    return await fetchWithAuth(`/api/v1/tickets/${id}/resolve`, {
-      method: 'PUT',
-    }, token);
-  },
-  
-  // Mudar categoria do ticket
-  changeCategory: async (id: number, novaCategoriaId: number, token: string) => {
-    return await fetchWithAuth(`/api/v1/tickets/${id}/categoria?novaCategoriaId=${novaCategoriaId}`, {
-      method: 'PUT',
-    }, token);
-  },
-  
-  // Cancelar ticket (chamado específico para o cliente)
-  cancelTicket: async (id: number, token: string) => {
-    return await fetchWithAuth(`/api/v1/tickets/${id}/cancel`, {
-      method: 'PUT',
-    }, token);
-  }
 };
 
-// Exportar todas as APIs
 export const api = {
   auth,
   categories,
   departments,
+  tickets,
   users,
-  tickets
 };

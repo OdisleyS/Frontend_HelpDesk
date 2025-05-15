@@ -19,6 +19,11 @@ interface Ticket {
   categoria: string;
   abertoEm: string;
   prazoSla: string;
+  tecnico: {
+    id: number;
+    nome: string;
+    email: string;
+  } | null;
 }
 
 // Componentes de status e prioridade (reutilizados)
@@ -117,7 +122,7 @@ const formatDate = (dateString: string) => {
 
 export default function TecnicoMeusAtendimentosPage() {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [statusFilter, setStatusFilter] = useState<string>('EM_ATENDIMENTO');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -132,12 +137,13 @@ export default function TecnicoMeusAtendimentosPage() {
       setError('');
       
       try {
-        // Idealmente, deveria haver um endpoint para listar chamados do técnico
-        // Por enquanto, usamos o filtro por status
-        const data = await api.tickets.listByStatus(statusFilter, token);
-        // Filtrar apenas chamados atribuídos ao técnico atual
-        // Isso deve ser feito no backend, mas como simplificação, fazemos aqui
-        setTickets(data);
+        // Aqui usamos a função para buscar chamados do técnico atual
+        const data = await api.tickets.getMyTickets(token);
+        // Filtrar pelo status selecionado (se não for "TODOS")
+        const filteredData = statusFilter === 'TODOS' 
+          ? data 
+          : data.filter((ticket: Ticket) => ticket.status === statusFilter);
+        setTickets(filteredData);
       } catch (error) {
         console.error('Erro ao carregar chamados:', error);
         setError('Não foi possível carregar seus atendimentos. Tente novamente mais tarde.');
@@ -162,6 +168,13 @@ export default function TecnicoMeusAtendimentosPage() {
       {/* Filtros */}
       <div className="bg-white p-4 rounded-lg border border-slate-200">
         <div className="flex flex-wrap gap-2">
+          <Button 
+            variant={statusFilter === 'TODOS' ? 'default' : 'outline'}
+            onClick={() => setStatusFilter('TODOS')}
+            size="sm"
+          >
+            Todos
+          </Button>
           <Button 
             variant={statusFilter === 'EM_ANALISE' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('EM_ANALISE')}
@@ -227,7 +240,9 @@ export default function TecnicoMeusAtendimentosPage() {
             </svg>
             <h3 className="text-lg font-medium text-slate-700 mt-4">Nenhum atendimento encontrado</h3>
             <p className="text-slate-500 mt-2">
-              Você não possui chamados com status "{statusFilter.replace('_', ' ').toLowerCase()}" no momento.
+              {statusFilter === 'TODOS' 
+                ? 'Você não possui chamados atribuídos a você no momento.' 
+                : `Você não possui chamados com status "${statusFilter.replace('_', ' ').toLowerCase()}" no momento.`}
             </p>
             <Button className="mt-4" onClick={() => router.push('/tecnico/chamados')}>
               Ver Chamados Disponíveis
@@ -261,6 +276,11 @@ export default function TecnicoMeusAtendimentosPage() {
                         )}
                       </div>
                     </div>
+                    <div>
+                      <Button variant="outline" size="sm">
+                        Ver Detalhes
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -272,6 +292,7 @@ export default function TecnicoMeusAtendimentosPage() {
       {/* Alerta informativo */}
       <Alert variant="info" title="Dica">
         Lembre-se de manter o cliente informado sobre o progresso do atendimento.
+        Você pode adicionar comentários e mudar o status dos chamados na página de detalhes.
       </Alert>
     </div>
   );
