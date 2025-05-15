@@ -50,10 +50,10 @@ export default function ClienteLayout({
       {/* Sidebar */}
       <ClienteSidebar />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      {/* Main Content - Com margem-esquerda para não sobrepor o sidebar */}
+      <div className="flex-1 ml-64">
         <ClienteHeader />
-        <main className="flex-1 p-6">
+        <main className="p-6">
           {children}
         </main>
       </div>

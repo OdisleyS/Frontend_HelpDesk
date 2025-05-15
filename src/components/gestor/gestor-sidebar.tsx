@@ -1,5 +1,4 @@
-// src/components/gestor/gestor-sidebar.tsx (atualizar)
-
+// src/components/gestor/gestor-sidebar.tsx
 'use client';
 
 import Link from 'next/link';
@@ -71,7 +70,20 @@ export default function GestorSidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="w-64 bg-white border-r border-slate-200 h-screen">
+    <aside
+      style={{
+        width: '16rem',  // 256px (w-64)
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: 'white',
+        borderRight: '1px solid #e2e8f0',
+        zIndex: 10,
+      }}
+    >
       {/* Logo */}
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center gap-2">
@@ -93,8 +105,15 @@ export default function GestorSidebar() {
       </div>
 
       {/* Menu Items */}
-      <nav className="mt-4 px-4">
-        <ul className="space-y-2">
+      <div
+        style={{
+          flex: '1 1 auto',
+          overflowY: 'auto',
+          paddingTop: '1rem',
+          paddingBottom: '1rem',
+        }}
+      >
+        <ul className="px-4 space-y-2">
           {menuItems.map((item) => {
             const isActive = pathname === item.path;
             return (
@@ -114,10 +133,17 @@ export default function GestorSidebar() {
             );
           })}
         </ul>
-      </nav>
+      </div>
 
       {/* Logout */}
-      <div className="absolute bottom-0 w-64 p-4 border-t border-slate-200">
+      <div
+        style={{
+          borderTop: '1px solid #e2e8f0',
+          padding: '1rem',
+          marginTop: 'auto',
+          backgroundColor: 'white',
+        }}
+      >
         <button
           onClick={logout}
           className="flex items-center w-full gap-3 px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
@@ -126,6 +152,6 @@ export default function GestorSidebar() {
           <span>Sair</span>
         </button>
       </div>
-    </div>
+    </aside>
   );
 }

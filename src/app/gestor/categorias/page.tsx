@@ -135,9 +135,11 @@ export default function GestorCategoriasPage() {
       }
       
       console.log('Atualizando categoria:', editando);
+      
+      // Correção: Garantir que ativo nunca seja undefined
       const categoryRequest = {
         nome: editando.nome,
-        ativo: editando.ativo
+        ativo: editando.ativo === undefined ? true : editando.ativo
       };
       
       const updated = await api.categories.update(editando.id, categoryRequest, token);
@@ -180,15 +182,15 @@ export default function GestorCategoriasPage() {
         return;
       }
       
-      // Inverter o status atual
-      const novoStatus = !categoria.ativo;
+      // Inverter o status atual (se indefinido, assume true)
+      const novoStatus = !(categoria.ativo === undefined ? true : categoria.ativo);
       
       console.log(`${novoStatus ? 'Ativando' : 'Desativando'} categoria:`, categoria);
       
-      // Prepare update data
+      // Prepare update data - correção do mesmo problema de tipagem
       const categoryRequest = {
         nome: categoria.nome,
-        ativo: novoStatus
+        ativo: novoStatus // Isso já é garantidamente um booleano
       };
       
       await api.categories.update(categoria.id, categoryRequest, token);
@@ -282,13 +284,13 @@ export default function GestorCategoriasPage() {
               <label className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={editando.ativo}
-                  onChange={() => setEditando({ ...editando, ativo: !editando.ativo })}
+                  checked={editando.ativo === undefined ? true : editando.ativo}
+                  onChange={() => setEditando({ ...editando, ativo: !(editando.ativo === undefined ? true : editando.ativo) })}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 relative"></div>
                 <span className="ml-3 text-sm font-medium text-slate-700">
-                  {editando.ativo ? 'Ativo' : 'Inativo'}
+                  {editando.ativo === undefined ? true : editando.ativo ? 'Ativo' : 'Inativo'}
                 </span>
               </label>
             </div>
@@ -350,11 +352,11 @@ export default function GestorCategoriasPage() {
                   <div>
                     <h3 className="font-medium">{categoria.nome}</h3>
                     <span className={`text-xs px-2 py-1 rounded-full ${
-                      categoria.ativo 
+                      categoria.ativo === undefined ? true : categoria.ativo 
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {categoria.ativo ? 'Ativo' : 'Inativo'}
+                      {categoria.ativo === undefined ? true : categoria.ativo ? 'Ativo' : 'Inativo'}
                     </span>
                   </div>
                   <div className="flex space-x-2">
@@ -367,10 +369,10 @@ export default function GestorCategoriasPage() {
                     </Button>
                     <Button 
                       size="sm" 
-                      variant={categoria.ativo ? "destructive" : "default"}
+                      variant={(categoria.ativo === undefined ? true : categoria.ativo) ? "destructive" : "default"}
                       onClick={() => alternarStatus(categoria)}
                     >
-                      {categoria.ativo ? 'Desativar' : 'Ativar'}
+                      {(categoria.ativo === undefined ? true : categoria.ativo) ? 'Desativar' : 'Ativar'}
                     </Button>
                   </div>
                 </div>
