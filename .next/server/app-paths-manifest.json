@@ -1,8 +1,5 @@
 {
-  "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/gestor/page": "app/gestor/page.js",
-  "/gestor/departamentos/page": "app/gestor/departamentos/page.js",
-  "/cliente/abrir-chamado/page": "app/cliente/abrir-chamado/page.js",
-  "/gestor/usuarios/page": "app/gestor/usuarios/page.js",
-  "/gestor/categorias/page": "app/gestor/categorias/page.js"
+  "/not-found": "app/not-found.js",
+  "/cliente/meus-chamados/page": "app/cliente/meus-chamados/page.js",
+  "/cliente/chamado/[id]/page": "app/cliente/chamado/[id]/page.js"
 }

@@ -2,10 +2,13 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
+import { useAuth } from '@/context/auth-context';
+import { api } from '@/lib/api';
 
 // Enum para filtro de status
 enum StatusFilter {
@@ -16,6 +19,17 @@ enum StatusFilter {
   AGUARDANDO_CLIENTE = 'AGUARDANDO_CLIENTE',
   RESOLVIDO = 'RESOLVIDO',
   FECHADO = 'FECHADO'
+}
+
+// Interface para o ticket (chamado)
+interface Ticket {
+  id: number;
+  titulo: string;
+  prioridade: string;
+  status: string;
+  categoria: string;
+  abertoEm: string;
+  prazoSla: string;
 }
 
 // Componente de status visuais
@@ -65,11 +79,103 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
+// Componente para exibir a prioridade
+const PriorityBadge = ({ priority }: { priority: string }) => {
+  const getPriorityColorClasses = (priority: string) => {
+    switch (priority) {
+      case 'BAIXA':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'MEDIA':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'ALTA':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-slate-100 text-slate-800 border-slate-200';
+    }
+  };
+
+  const getPriorityDisplayName = (priority: string) => {
+    switch (priority) {
+      case 'BAIXA':
+        return 'Baixa';
+      case 'MEDIA':
+        return 'Média';
+      case 'ALTA':
+        return 'Alta';
+      default:
+        return priority;
+    }
+  };
+
+  return (
+    <span className={`text-xs font-medium px-2 py-1 rounded-full border ${getPriorityColorClasses(priority)}`}>
+      {getPriorityDisplayName(priority)}
+    </span>
+  );
+};
+
+// Função para formatar data
+const formatDate = (dateString: string) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
+};
+
 export default function MeusChamadosPage() {
+  const router = useRouter();
+  const { token } = useAuth();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(StatusFilter.TODOS);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   
-  // Chamados simulados (vazio para demonstração)
-  const chamados: any[] = [];
+  // Carregar chamados
+  useEffect(() => {
+    const loadTickets = async () => {
+      if (!token) return;
+      
+      setIsLoading(true);
+      setError('');
+      
+      try {
+        // Se o filtro for TODOS, precisamos fazer múltiplas chamadas para cada status
+        if (statusFilter === StatusFilter.TODOS) {
+          // Array de todos os status que queremos buscar
+          const statusesToFetch = [
+            'ABERTO', 'EM_ANALISE', 'EM_ATENDIMENTO', 
+            'AGUARDANDO_CLIENTE', 'RESOLVIDO', 'FECHADO'
+          ];
+          
+          // Buscar todos os status em paralelo
+          const allTicketsPromises = statusesToFetch.map(status => 
+            api.tickets.listByStatus(status, token));
+          
+          const results = await Promise.all(allTicketsPromises);
+          
+          // Combinar todos os resultados em um único array
+          const allTickets = results.flat();
+          setTickets(allTickets);
+        } else {
+          // Buscar apenas o status selecionado
+          const data = await api.tickets.listByStatus(statusFilter, token);
+          setTickets(data);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar chamados:', error);
+        setError('Não foi possível carregar seus chamados. Tente novamente mais tarde.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadTickets();
+  }, [statusFilter, token]);
 
   return (
     <div className="space-y-6">
@@ -79,7 +185,7 @@ export default function MeusChamadosPage() {
           <h2 className="text-2xl font-bold text-slate-900">Meus Chamados</h2>
           <p className="text-slate-600 mt-1">Visualize e gerencie seus chamados de suporte.</p>
         </div>
-        <Button onClick={() => window.location.href = '/cliente/abrir-chamado'}>
+        <Button onClick={() => router.push('/cliente/abrir-chamado')}>
           Novo Chamado
         </Button>
       </div>
@@ -125,8 +231,22 @@ export default function MeusChamadosPage() {
         </div>
       </div>
 
+      {/* Mensagem de erro */}
+      {error && (
+        <Alert variant="destructive" title="Erro">
+          {error}
+        </Alert>
+      )}
+
       {/* Lista de chamados */}
-      {chamados.length === 0 ? (
+      {isLoading ? (
+        <Card>
+          <CardContent className="flex justify-center py-10">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+            <span className="ml-3">Carregando chamados...</span>
+          </CardContent>
+        </Card>
+      ) : tickets.length === 0 ? (
         <Card>
           <CardContent className="text-center py-10">
             <svg
@@ -144,15 +264,48 @@ export default function MeusChamadosPage() {
               />
             </svg>
             <h3 className="text-lg font-medium text-slate-700 mt-4">Nenhum chamado encontrado</h3>
-            <p className="text-slate-500 mt-2">Você ainda não possui chamados registrados.</p>
-            <Button className="mt-4" onClick={() => window.location.href = '/cliente/abrir-chamado'}>
+            <p className="text-slate-500 mt-2">
+              {statusFilter === StatusFilter.TODOS 
+                ? 'Você ainda não possui chamados registrados.' 
+                : `Você não possui chamados com status "${StatusFilter[statusFilter].replace('_', ' ').toLowerCase()}".`}
+            </p>
+            <Button className="mt-4" onClick={() => router.push('/cliente/abrir-chamado')}>
               Abrir Novo Chamado
             </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {/* Aqui seria renderizada a lista de chamados */}
+          {tickets.map(ticket => (
+            <div 
+              key={ticket.id} 
+              onClick={() => router.push(`/cliente/chamado/${ticket.id}`)} 
+              className="cursor-pointer"
+            >
+              <Card className="hover:border-blue-300 transition-colors">
+                <CardContent className="p-4">
+                  <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+                    <div>
+                      <h3 className="font-medium text-lg text-slate-900">{ticket.titulo}</h3>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        <StatusBadge status={ticket.status} />
+                        <PriorityBadge priority={ticket.prioridade} />
+                        <span className="text-xs font-medium px-2 py-1 rounded-full border bg-slate-100 text-slate-800">
+                          {ticket.categoria}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-sm text-slate-500">
+                      <div>Aberto em: {formatDate(ticket.abertoEm)}</div>
+                      {ticket.prazoSla && (
+                        <div>Prazo: {formatDate(ticket.prazoSla)}</div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ))}
         </div>
       )}
 

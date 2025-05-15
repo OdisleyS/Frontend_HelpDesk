@@ -16,6 +16,12 @@ interface Department {
   ativo?: boolean;
 }
 
+// Interface para a requisição ao atualizar/criar departamento
+interface DepartmentRequest {
+  nome: string;
+  ativo: boolean;
+}
+
 export default function GestorDepartamentosPage() {
   // Estado para a lista de departamentos
   const [departamentos, setDepartamentos] = useState<Department[]>([]);
@@ -84,7 +90,7 @@ export default function GestorDepartamentosPage() {
       }
       
       console.log('Enviando novo departamento para o backend:', novoDepartamento);
-      const departmentRequest = {
+      const departmentRequest: DepartmentRequest = {
         nome: novoDepartamento.nome,
         ativo: true
       };
@@ -135,9 +141,10 @@ export default function GestorDepartamentosPage() {
       }
       
       console.log('Atualizando departamento:', editando);
-      const departmentRequest = {
+      
+      const departmentRequest: DepartmentRequest = {
         nome: editando.nome,
-        ativo: editando.ativo
+        ativo: editando.ativo !== undefined ? editando.ativo : true
       };
       
       const updated = await api.departments.update(editando.id, departmentRequest, token);
@@ -186,7 +193,7 @@ export default function GestorDepartamentosPage() {
       console.log(`${novoStatus ? 'Ativando' : 'Desativando'} departamento:`, departamento);
       
       // Prepare update data
-      const departmentRequest = {
+      const departmentRequest: DepartmentRequest = {
         nome: departamento.nome,
         ativo: novoStatus
       };
