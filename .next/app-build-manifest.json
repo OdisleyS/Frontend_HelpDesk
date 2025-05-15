@@ -1,40 +1,35 @@
 {
   "pages": {
-    "/cliente/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/cliente/page.js"
-    ],
     "/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/cliente/layout": [
+    "/tecnico/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/cliente/layout.js"
+      "static/chunks/app/tecnico/layout.js"
     ],
-    "/cliente/meus-chamados/page": [
+    "/tecnico/meus-atendimentos/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/cliente/meus-chamados/page.js"
+      "static/chunks/app/tecnico/meus-atendimentos/page.js"
     ],
-    "/(auth)/layout": [
+    "/tecnico/chamados/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(auth)/layout.js"
+      "static/chunks/app/tecnico/chamados/page.js"
     ],
-    "/(auth)/login/page": [
+    "/tecnico/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(auth)/login/page.js"
+      "static/chunks/app/tecnico/page.js"
     ],
-    "/page": [
+    "/tecnico/chamados/[id]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/page.js"
+      "static/chunks/app/tecnico/chamados/[id]/page.js"
     ],
     "/dashboard/page": [
       "static/chunks/webpack.js",
@@ -45,21 +40,6 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/layout.js"
-    ],
-    "/cliente/perfil/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/cliente/perfil/page.js"
-    ],
-    "/cliente/abrir-chamado/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/cliente/abrir-chamado/page.js"
-    ],
-    "/cliente/chamado/[id]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/cliente/chamado/[id]/page.js"
     ],
     "/not-found": [
       "static/chunks/webpack.js",

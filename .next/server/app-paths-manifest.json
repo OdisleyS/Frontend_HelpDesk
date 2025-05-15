@@ -1,5 +1,8 @@
 {
   "/not-found": "app/not-found.js",
-  "/cliente/meus-chamados/page": "app/cliente/meus-chamados/page.js",
-  "/cliente/chamado/[id]/page": "app/cliente/chamado/[id]/page.js"
+  "/tecnico/meus-atendimentos/page": "app/tecnico/meus-atendimentos/page.js",
+  "/tecnico/chamados/[id]/page": "app/tecnico/chamados/[id]/page.js",
+  "/tecnico/chamados/page": "app/tecnico/chamados/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/tecnico/page": "app/tecnico/page.js"
 }
