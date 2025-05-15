@@ -349,22 +349,27 @@ updateStatus: async (id: number, status: string, token: string): Promise<void> =
     }
   },
 
-  addComment: async (id: number, comment: string, token: string) => {
+// Corrija esta função no arquivo src/lib/api.ts
+addComment: async (id: number, comment: string, token: string): Promise<void> => {
+  try {
     const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/comment`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ comment }),
+      body: JSON.stringify({ comment }) // Certifique-se de que o nome do campo está correto
     });
 
     if (!response.ok) {
-      throw new Error(`Falha ao adicionar comentário ao chamado #${id}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Falha ao adicionar comentário');
     }
-
-    return response.json();
-  },
+  } catch (error) {
+    console.error('Erro ao adicionar comentário:', error);
+    throw error;
+  }
+},
 };
 
 // Funções de usuários

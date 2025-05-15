@@ -296,49 +296,52 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
     }
   };
 
-  // Função para adicionar comentário
-  const handleAddComment = async () => {
-    if (!token || !ticket || !comment.trim()) return;
+const handleAddComment = async () => {
+  if (!token || !ticket || !comment.trim()) return;
+  
+  setIsUpdating(true);
+  setError('');
+  
+  try {
+    // Verificar a URL e o formato do corpo da requisição
+    console.log(`Enviando comentário para o chamado #${ticket.id}:`, comment);
     
-    setIsUpdating(true);
-    setError('');
+    await api.tickets.addComment(ticket.id, comment, token);
     
-    try {
-      await api.tickets.addComment(ticket.id, comment, token);
-      
-      // Atualizar o histórico localmente
-      setHistory(prev => [
-        ...prev,
-        {
-          id: Math.floor(Math.random() * 10000),
-          usuario: {
-            nome: user?.nome || user?.email?.split('@')[0] || '',
-            email: user?.email || ''
-          },
-          deStatus: null,
-          paraStatus: null,
-          acao: comment,
-          criadoEm: new Date().toISOString()
-        }
-      ]);
-      
-      setComment('');
-      setSuccessMessage('Comentário adicionado com sucesso!');
-      
-      // Tentar recarregar o histórico
-      try {
-        const historyData = await api.tickets.getHistory(Number(params.id), token);
-        setHistory(historyData);
-      } catch (historyError) {
-        console.error('Erro ao carregar histórico após comentar:', historyError);
+    // Atualizar o histórico localmente
+    setHistory(prev => [
+      ...prev,
+      {
+        id: Math.floor(Math.random() * 10000),
+        usuario: {
+          nome: user?.nome || user?.email?.split('@')[0] || '',
+          email: user?.email || ''
+        },
+        deStatus: null,
+        paraStatus: null,
+        acao: comment,
+        criadoEm: new Date().toISOString()
       }
-    } catch (error) {
-      console.error('Erro ao adicionar comentário:', error);
-      setError('Não foi possível adicionar o comentário. Tente novamente mais tarde.');
-    } finally {
-      setIsUpdating(false);
+    ]);
+    
+    setComment('');
+    setSuccessMessage('Comentário adicionado com sucesso!');
+    
+    // Tentar recarregar o histórico
+    try {
+      const historyData = await api.tickets.getHistory(Number(params.id), token);
+      setHistory(historyData);
+    } catch (historyError) {
+      console.error('Erro ao carregar histórico após comentar:', historyError);
     }
-  };
+  } catch (error: any) {
+    console.error('Erro ao adicionar comentário:', error);
+    // Mensagem de erro mais específica
+    setError(error.message || 'Não foi possível adicionar o comentário. Tente novamente mais tarde.');
+  } finally {
+    setIsUpdating(false);
+  }
+};
 
   if (isLoading) {
     return (
