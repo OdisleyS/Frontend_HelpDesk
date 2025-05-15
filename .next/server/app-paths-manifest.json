@@ -1,8 +1,0 @@
-{
-  "/not-found": "app/not-found.js",
-  "/tecnico/meus-atendimentos/page": "app/tecnico/meus-atendimentos/page.js",
-  "/tecnico/chamados/[id]/page": "app/tecnico/chamados/[id]/page.js",
-  "/tecnico/chamados/page": "app/tecnico/chamados/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/tecnico/page": "app/tecnico/page.js"
-}
