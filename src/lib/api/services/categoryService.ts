@@ -1,4 +1,4 @@
-// src/lib/services/categoryService.ts
+// src/lib/api/services/categoryService.ts
 
 import { api } from '@/lib/api';
 

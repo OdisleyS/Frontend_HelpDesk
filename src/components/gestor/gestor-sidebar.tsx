@@ -54,14 +54,22 @@ const LogoutIcon = () => (
   </svg>
 );
 
+const SlaIcon = () => (
+  <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+
 // Definição de itens do menu
 const menuItems = [
   { icon: HomeIcon, name: 'Dashboard', path: '/gestor' },
+  { icon: NotificationIcon, name: 'Notificações', path: '/gestor/notificacoes' },
   { icon: DepartmentIcon, name: 'Departamentos', path: '/gestor/departamentos' },
   { icon: CategoryIcon, name: 'Categorias', path: '/gestor/categorias' },
   { icon: UsersIcon, name: 'Usuários', path: '/gestor/usuarios' },
   { icon: StatsIcon, name: 'Estatísticas', path: '/gestor/estatisticas' },
-  { icon: NotificationIcon, name: 'Notificações', path: '/gestor/notificacoes' },
+  { icon: SlaIcon, name: 'SLA por Categoria', path: '/gestor/sla'},
   { icon: ProfileIcon, name: 'Meu Perfil', path: '/gestor/perfil' },
 ];
 

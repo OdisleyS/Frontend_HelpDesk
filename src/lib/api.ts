@@ -422,10 +422,80 @@ const users = {
   },
 };
 
+// Funções de SLA
+const sla = {
+  // Salvar 1 item
+  create: async (
+    categoriaId: number,
+    prioridade: 'BAIXA' | 'MEDIA' | 'ALTA',
+    minutosResolucao: number,
+    token: string
+  ) => {
+    const response = await fetch(`${BASE_URL}/api/v1/sla`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ categoriaId, prioridade, minutosResolucao }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro ao salvar SLA (cat: ${categoriaId}, prioridade: ${prioridade})`);
+    }
+
+    return await response.json();
+  },
+
+  // Buscar todos os SLAs salvos
+  listAll: async (token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/sla`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Erro ao carregar SLAs salvos');
+    }
+
+    return response.json(); // Array de { categoriaId, prioridade, minutosResolucao }
+  },
+
+  // Enviar todos de uma vez (POST /api/v1/sla/batch)
+  batchSave: async (
+    slas: {
+      categoriaId: number;
+      prioridade: 'BAIXA' | 'MEDIA' | 'ALTA';
+      minutosResolucao: number;
+    }[],
+    token: string
+  ) => {
+    const response = await fetch(`${BASE_URL}/api/v1/sla/batch`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ slas }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Erro ao salvar SLAs em lote');
+    }
+
+    return response.text(); 
+  },
+};
+
+
 export const api = {
   auth,
   categories,
   departments,
   tickets,
   users,
+  sla, 
 };
+
+
