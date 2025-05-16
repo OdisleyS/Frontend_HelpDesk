@@ -204,38 +204,47 @@ const tickets = {
     return response.json();
   },
 
-getById: async (id: number, token: string): Promise<any> => {
-  try {
-    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
+  getById: async (id: number, token: string): Promise<any> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar detalhes do chamado');
       }
-    });
 
-    if (!response.ok) {
-      throw new Error('Falha ao carregar detalhes do chamado');
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao buscar detalhes do chamado:', error);
+      throw error;
     }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Erro ao buscar detalhes do chamado:', error);
-    throw error;
-  }
-},
+  },
 
   getHistory: async (id: number, token: string) => {
-    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/history`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/history`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(`Falha ao obter histórico do chamado #${id}`);
+      if (!response.ok) {
+        // Se receber um erro 403, significa que o usuário não tem permissão
+        if (response.status === 403) {
+          return []; // Retorna array vazio em vez de lançar erro
+        }
+        throw new Error(`Falha ao obter histórico do chamado #${id}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Erro ao buscar histórico do chamado:', error);
+      return []; // Retorna array vazio em caso de erro
     }
-
-    return response.json();
   },
 
   create: async (data: any, token: string) => {
@@ -255,25 +264,25 @@ getById: async (id: number, token: string): Promise<any> => {
     return response.json();
   },
 
-updateStatus: async (id: number, status: string, token: string): Promise<void> => {
-  try {
-    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/status`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ novoStatus: status })
-    });
+  updateStatus: async (id: number, status: string, token: string): Promise<void> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ novoStatus: status })
+      });
 
-    if (!response.ok) {
-      throw new Error('Falha ao atualizar status do chamado');
+      if (!response.ok) {
+        throw new Error('Falha ao atualizar status do chamado');
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+      throw error;
     }
-  } catch (error) {
-    console.error('Erro ao atualizar status:', error);
-    throw error;
-  }
-},
+  },
 
   assignTecnico: async (id: number, token: string): Promise<void> => {
     try {
@@ -287,47 +296,71 @@ updateStatus: async (id: number, status: string, token: string): Promise<void> =
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const message = errorData.message || 
-                        (response.status === 400 
-                          ? 'Este chamado não pode ser assumido no momento.'
-                          : 'Não foi possível assumir o chamado.');
-                          
+        const message = errorData.message ||
+          (response.status === 400
+            ? 'Este chamado não pode ser assumido no momento.'
+            : 'Não foi possível assumir o chamado.');
+
         throw new Error(message);
       }
     } catch (error) {
       console.error('Erro ao assumir chamado:', error);
-      throw error; 
+      throw error;
     }
   },
 
   resolveTicket: async (id: number, token: string) => {
-    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/resolve`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/resolve`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(`Falha ao resolver chamado #${id}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Falha ao resolver chamado #${id}`);
+      }
+
+      // Não tentar fazer .json() se não houver corpo na resposta
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        return response.json();
+      }
+      return null;
+    } catch (error) {
+      console.error('Erro ao resolver chamado:', error);
+      throw error;
     }
-
-    return response.json();
   },
 
   cancelTicket: async (id: number, token: string) => {
-    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/cancel`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/cancel`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(`Falha ao cancelar chamado #${id}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Falha ao cancelar chamado #${id}`);
+      }
+
+      // Não tentar fazer .json() se não houver corpo na resposta
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        return response.json();
+      }
+      return null;
+    } catch (error) {
+      console.error('Erro ao cancelar chamado:', error);
+      throw error;
     }
-
-    return response.json();
   },
 
   getMyTickets: async (token: string): Promise<any[]> => {
@@ -349,27 +382,27 @@ updateStatus: async (id: number, status: string, token: string): Promise<void> =
     }
   },
 
-// Corrija esta função no arquivo src/lib/api.ts
-addComment: async (id: number, comment: string, token: string): Promise<void> => {
-  try {
-    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/comment`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ comment }) // Certifique-se de que o nome do campo está correto
-    });
+  // Corrija esta função no arquivo src/lib/api.ts
+  addComment: async (id: number, comment: string, token: string): Promise<void> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/comment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ comment }) // Certifique-se de que o nome do campo está correto
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Falha ao adicionar comentário');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Falha ao adicionar comentário');
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar comentário:', error);
+      throw error;
     }
-  } catch (error) {
-    console.error('Erro ao adicionar comentário:', error);
-    throw error;
-  }
-},
+  },
 };
 
 // Funções de usuários
@@ -484,7 +517,7 @@ const sla = {
       throw new Error('Erro ao salvar SLAs em lote');
     }
 
-    return response.text(); 
+    return response.text();
   },
 };
 
@@ -495,7 +528,7 @@ export const api = {
   departments,
   tickets,
   users,
-  sla, 
+  sla,
 };
 
 

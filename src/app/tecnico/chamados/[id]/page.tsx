@@ -152,24 +152,29 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
   const [successMessage, setSuccessMessage] = useState('');
   const [comment, setComment] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
-  
+
   // Carregar detalhes do chamado
   useEffect(() => {
     const loadTicketDetails = async () => {
       if (!token) return;
-      
+
       setIsLoading(true);
       setError('');
-      
+
       try {
         // Buscar detalhes do chamado
         const ticketData = await api.tickets.getById(Number(params.id), token);
         setTicket(ticketData);
         setSelectedStatus(ticketData.status);
-        
-        // Buscar histórico do chamado
-        const historyData = await api.tickets.getHistory(Number(params.id), token);
-        setHistory(historyData);
+
+        // Buscar histórico do chamado - com tratamento de erro silencioso
+        try {
+          const historyData = await api.tickets.getHistory(Number(params.id), token);
+          setHistory(historyData || []);
+        } catch (historyError) {
+          console.warn('Não foi possível carregar o histórico completo:', historyError);
+          setHistory([]); // Define um array vazio em caso de erro
+        }
       } catch (error) {
         console.error('Erro ao carregar detalhes do chamado:', error);
         setError('Não foi possível carregar os detalhes do chamado. Tente novamente mais tarde.');
@@ -177,32 +182,32 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
         setIsLoading(false);
       }
     };
-    
+
     loadTicketDetails();
   }, [params.id, token]);
 
   // Função para assumir o chamado
   const handleAssignTicket = async () => {
     if (!token || !ticket) return;
-    
+
     setIsUpdating(true);
-    
+
     try {
       await api.tickets.assignTecnico(ticket.id, token);
-      
+
       // Atualizar o ticket localmente
-      setTicket(prev => prev ? { 
-        ...prev, 
+      setTicket(prev => prev ? {
+        ...prev,
         status: 'EM_ATENDIMENTO',
-        tecnico: { 
-          id: user?.id || 0, 
-          nome: user?.nome || user?.email?.split('@')[0] || '', 
-          email: user?.email || '' 
-        } 
+        tecnico: {
+          id: user?.id || 0,
+          nome: user?.nome || user?.email?.split('@')[0] || '',
+          email: user?.email || ''
+        }
       } : null);
-      
+
       setSuccessMessage('Chamado assumido com sucesso!');
-      
+
       // Recarregar o histórico
       try {
         const historyData = await api.tickets.getHistory(Number(params.id), token);
@@ -221,17 +226,17 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
   // Função para atualizar o status do chamado
   const handleStatusChange = async () => {
     if (!token || !ticket || selectedStatus === ticket.status) return;
-    
+
     setIsUpdating(true);
-    
+
     try {
       await api.tickets.updateStatus(ticket.id, selectedStatus, token);
-      
+
       // Atualizar o ticket localmente
       setTicket(prev => prev ? { ...prev, status: selectedStatus } : null);
-      
+
       setSuccessMessage(`Status atualizado para ${selectedStatus.replace('_', ' ').toLowerCase()}!`);
-      
+
       // Recarregar o histórico
       try {
         const historyData = await api.tickets.getHistory(Number(params.id), token);
@@ -250,10 +255,10 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
   // Função para resolver o chamado - CORRIGIDA
   const handleResolveTicket = async () => {
     if (!token || !ticket) return;
-    
+
     setIsUpdating(true);
     setError('');
-    
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/tickets/${ticket.id}/resolve`, {
         method: 'PUT',
@@ -262,24 +267,24 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
           'Content-Type': 'application/json'
         }
       });
-      
+
       // Verificar se a resposta é bem-sucedida mesmo se não houver JSON
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Erro ao resolver chamado: ${response.status} ${errorText}`);
       }
-      
+
       // Não tentar analisar JSON se não houver conteúdo
-      if (response.headers.get('content-length') !== '0' && 
-          response.headers.get('content-type')?.includes('application/json')) {
+      if (response.headers.get('content-length') !== '0' &&
+        response.headers.get('content-type')?.includes('application/json')) {
         await response.json(); // Só analisa se for realmente JSON
       }
-      
+
       // Atualizar o ticket localmente
       setTicket(prev => prev ? { ...prev, status: 'RESOLVIDO' } : null);
-      
+
       setSuccessMessage('Chamado resolvido com sucesso!');
-      
+
       // Recarregar o histórico
       try {
         const historyData = await api.tickets.getHistory(Number(params.id), token);
@@ -298,13 +303,13 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
   // Função para adicionar comentário
   const handleAddComment = async () => {
     if (!token || !ticket || !comment.trim()) return;
-    
+
     setIsUpdating(true);
     setError('');
-    
+
     try {
       await api.tickets.addComment(ticket.id, comment, token);
-      
+
       // Atualizar o histórico localmente
       setHistory(prev => [
         ...prev,
@@ -320,10 +325,10 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
           criadoEm: new Date().toISOString()
         }
       ]);
-      
+
       setComment('');
       setSuccessMessage('Comentário adicionado com sucesso!');
-      
+
       // Recarregar o histórico para garantir dados atualizados
       const historyData = await api.tickets.getHistory(Number(params.id), token);
       setHistory(historyData);
@@ -374,14 +379,14 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
 
   // Verificar se é possível realizar ações no chamado
   const canAssign = ticket.status === 'ABERTO' && (!ticket.tecnico || ticket.tecnico.id !== user?.id);
-  const canUpdateStatus = ticket.tecnico && 
-                         (ticket.tecnico.email === user?.email) && 
-                         ticket.status !== 'RESOLVIDO' && 
-                         ticket.status !== 'FECHADO';
-  const canResolve = ticket.tecnico && 
-                    (ticket.tecnico.email === user?.email) && 
-                    ticket.status !== 'RESOLVIDO' && 
-                    ticket.status !== 'FECHADO';
+  const canUpdateStatus = ticket.tecnico &&
+    (ticket.tecnico.email === user?.email) &&
+    ticket.status !== 'RESOLVIDO' &&
+    ticket.status !== 'FECHADO';
+  const canResolve = ticket.tecnico &&
+    (ticket.tecnico.email === user?.email) &&
+    ticket.status !== 'RESOLVIDO' &&
+    ticket.status !== 'FECHADO';
   const canAddComment = ticket.status !== 'FECHADO';
 
   return (
@@ -461,21 +466,21 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
             <div className="text-sm text-slate-500">
               Status atual: <StatusBadge status={ticket.status} />
             </div>
-            
+
             <div className="flex gap-2">
               {/* Botão para assumir chamado */}
               {canAssign && (
-                <Button 
+                <Button
                   onClick={handleAssignTicket}
                   disabled={isUpdating}
                 >
                   {isUpdating ? 'Processando...' : 'Assumir Chamado'}
                 </Button>
               )}
-              
+
               {/* Botão para resolver chamado */}
               {canResolve && (
-                <Button 
+                <Button
                   variant="success"
                   onClick={handleResolveTicket}
                   disabled={isUpdating}
@@ -486,7 +491,7 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
               )}
             </div>
           </div>
-          
+
           {/* Seletor de Status */}
           {canUpdateStatus && (
             <div className="flex gap-4 items-center w-full border-t border-slate-200 pt-4">
@@ -501,7 +506,7 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
                 <option value="EM_ATENDIMENTO">Em Atendimento</option>
                 <option value="AGUARDANDO_CLIENTE">Aguardando Cliente</option>
               </select>
-              <Button 
+              <Button
                 onClick={handleStatusChange}
                 disabled={isUpdating || selectedStatus === ticket.status}
               >
@@ -528,7 +533,7 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
             ></textarea>
           </CardContent>
           <CardFooter>
-            <Button 
+            <Button
               onClick={handleAddComment}
               disabled={isUpdating || !comment.trim()}
               fullWidth={true}
@@ -574,7 +579,7 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
           )}
         </CardContent>
       </Card>
-      
+
       {/* Informações adicionais sobre o SLA */}
       <Alert variant="info" title="Sobre o Prazo SLA">
         O prazo SLA (Service Level Agreement) é calculado automaticamente pelo sistema com base na categoria e prioridade do chamado.

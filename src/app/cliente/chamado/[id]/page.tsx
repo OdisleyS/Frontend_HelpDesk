@@ -147,15 +147,15 @@ export default function ChamadoDetailsPage({ params }: { params: { id: string } 
   useEffect(() => {
     const loadTicketDetails = async () => {
       if (!token) return;
-      
+
       setIsLoading(true);
       setError('');
-      
+
       try {
         // Buscar detalhes do chamado
         const ticketData = await api.tickets.getById(Number(params.id), token);
         setTicket(ticketData);
-        
+
         // Buscar histórico do chamado
         const historyData = await api.tickets.getHistory(Number(params.id), token);
         setHistory(historyData);
@@ -166,32 +166,36 @@ export default function ChamadoDetailsPage({ params }: { params: { id: string } 
         setIsLoading(false);
       }
     };
-    
+
     loadTicketDetails();
   }, [params.id, token]);
 
   // Função para cancelar chamado
   const handleCancelTicket = async () => {
     if (!token || !ticket) return;
-    
+
     const confirmCancel = window.confirm('Tem certeza que deseja cancelar este chamado?');
     if (!confirmCancel) return;
-    
+
     setIsCancelling(true);
     setError('');
     setSuccessMessage('');
-    
+
     try {
       await api.tickets.cancelTicket(ticket.id, token);
       setSuccessMessage('Chamado cancelado com sucesso!');
-      
+
       // Atualizar o ticket para mostrar o novo status
       setTicket(prev => prev ? { ...prev, status: 'FECHADO' } : null);
-      
-      // Buscar o histórico atualizado
-      const historyData = await api.tickets.getHistory(Number(params.id), token);
-      setHistory(historyData);
-      
+
+      // Buscar o histórico atualizado - com tratamento de erro silencioso
+      try {
+        const historyData = await api.tickets.getHistory(Number(params.id), token);
+        setHistory(historyData || []);
+      } catch (historyError) {
+        console.warn('Não foi possível atualizar o histórico após cancelamento:', historyError);
+      }
+
       // Após 2 segundos, redirecionar para a lista de chamados
       setTimeout(() => {
         router.push('/cliente/meus-chamados');
@@ -300,8 +304,8 @@ export default function ChamadoDetailsPage({ params }: { params: { id: string } 
           </div>
           {/* Mostrar botão de cancelar apenas se o chamado estiver aberto */}
           {ticket.status === 'ABERTO' && (
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleCancelTicket}
               disabled={isCancelling}
             >
