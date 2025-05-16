@@ -1,4 +1,3 @@
-// 1. Solução mais robusta para o ClienteSidebar
 // src/components/cliente/cliente-sidebar.tsx
 
 'use client';
@@ -6,6 +5,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
 
 // Ícones para o menu
 const HomeIcon = () => (
@@ -14,21 +15,15 @@ const HomeIcon = () => (
   </svg>
 );
 
-const TicketsIcon = () => (
+const NotificationIcon = () => (
   <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
   </svg>
 );
 
 const AddIcon = () => (
   <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-  </svg>
-);
-
-const NotificationIcon = () => (
-  <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
   </svg>
 );
 
@@ -44,20 +39,35 @@ const LogoutIcon = () => (
   </svg>
 );
 
-// Definição de itens do menu
-const menuItems = [
-  { icon: HomeIcon, name: 'Meus Chamados', path: '/cliente/meus-chamados' },
-  { icon: AddIcon, name: 'Abrir Chamado', path: '/cliente/abrir-chamado' },
-  { icon: NotificationIcon, name: 'Notificações', path: '/cliente/notificacoes' },
-  { icon: ProfileIcon, name: 'Meu Perfil', path: '/cliente/perfil' },
-];
-
 export default function ClienteSidebar() {
-  const { logout } = useAuth();
+  const { logout, token } = useAuth();
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Carregar contagem de notificações não lidas
+  useEffect(() => {
+    const fetchUnreadNotifications = async () => {
+      if (!token) return;
+
+      try {
+        const notifications = await api.notifications.list(token);
+        const unreadNotifications = notifications.filter(n => !n.lida);
+        setUnreadCount(unreadNotifications.length);
+      } catch (error) {
+        console.error('Erro ao carregar notificações não lidas:', error);
+      }
+    };
+
+    fetchUnreadNotifications();
+
+    // Definir um intervalo para verificar novas notificações a cada 1 minuto
+    const interval = setInterval(fetchUnreadNotifications, 60000);
+
+    return () => clearInterval(interval);
+  }, [token]);
 
   return (
-    // Sidebar container com posição fixed e height 100vh para garantir que ocupe toda a altura da tela
+    // Sidebar container
     <div className="fixed top-0 left-0 w-64 h-full bg-white border-r border-slate-200 flex flex-col overflow-hidden">
       {/* Logo */}
       <div className="p-6 border-b border-slate-200">
@@ -79,27 +89,73 @@ export default function ClienteSidebar() {
         </div>
       </div>
 
-      {/* Menu Items com overflow-y-auto para permitir rolagem se necessário */}
+      {/* Menu Items */}
       <nav className="flex-grow overflow-y-auto">
         <ul className="p-4 space-y-2">
-          {menuItems.map((item) => {
-            const isActive = pathname === item.path;
-            return (
-              <li key={item.path}>
-                <Link 
-                  href={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-                    isActive 
-                      ? 'bg-blue-50 text-blue-600 font-medium' 
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <item.icon />
-                  <span>{item.name}</span>
-                </Link>
-              </li>
-            );
-          })}
+          {/* Meus Chamados */}
+          <li>
+            <Link
+              href="/cliente/meus-chamados"
+              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${pathname === '/cliente/meus-chamados'
+                  ? 'bg-blue-50 text-blue-600 font-medium'
+                  : 'text-slate-600 hover:bg-slate-100'
+                }`}
+            >
+              <HomeIcon />
+              <span>Meus Chamados</span>
+            </Link>
+          </li>
+
+          {/* Notificações com contador */}
+          <li>
+            <Link
+              href="/cliente/notificacoes"
+              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${pathname === '/cliente/notificacoes'
+                  ? 'bg-blue-50 text-blue-600 font-medium'
+                  : 'text-slate-600 hover:bg-slate-100'
+                }`}
+            >
+              <div className="relative">
+                <NotificationIcon />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </div>
+              <span>Notificações</span>
+            </Link>
+          </li>
+
+          {/* Meu Perfil */}
+          <li>
+            <Link
+              href="/cliente/perfil"
+              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${pathname === '/cliente/perfil'
+                  ? 'bg-blue-50 text-blue-600 font-medium'
+                  : 'text-slate-600 hover:bg-slate-100'
+                }`}
+            >
+              <ProfileIcon />
+              <span>Meu Perfil</span>
+            </Link>
+          </li>
+
+
+          {/* Abrir Chamado */}
+          <li>
+            <Link
+              href="/cliente/abrir-chamado"
+              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${pathname === '/cliente/abrir-chamado'
+                  ? 'bg-blue-50 text-blue-600 font-medium'
+                  : 'text-slate-600 hover:bg-slate-100'
+                }`}
+            >
+              <AddIcon />
+              <span>Abrir Chamado</span>
+            </Link>
+          </li>
+
         </ul>
       </nav>
 

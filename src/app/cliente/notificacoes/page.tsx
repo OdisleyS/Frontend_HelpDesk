@@ -1,23 +1,23 @@
 // src/app/cliente/notificacoes/page.tsx
-
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
+import { useAuth } from '@/context/auth-context';
+import { api } from '@/lib/api';
 
 interface Notification {
   id: number;
-  title: string;
-  description: string;
-  date: Date;
-  read: boolean;
-  type: 'status_change' | 'comment' | 'system' | 'assignment';
+  mensagem: string;
+  lida: boolean;
+  criadaEm: string;
 }
 
 // Função para formatar a data
-const formatDate = (date: Date): string => {
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -27,33 +27,89 @@ const formatDate = (date: Date): string => {
   }).format(date);
 };
 
+// Função para determinar o tipo de notificação baseado no conteúdo
+const getNotificationType = (message: string): 'status_change' | 'comment' | 'assignment' | 'system' => {
+  if (message.includes('técnico assumiu')) {
+    return 'assignment';
+  } else if (message.includes('atualizado para')) {
+    return 'status_change';
+  } else if (message.includes('comentou') || message.includes('comentário')) {
+    return 'comment';
+  } else {
+    return 'system';
+  }
+};
+
 export default function NotificacoesPage() {
-  // Simulação de notificações (vazio para demonstração)
+  const { token } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  
+  // Carregar notificações
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (!token) return;
+      
+      setIsLoading(true);
+      setError('');
+      
+      try {
+        const data = await api.notifications.list(token);
+        setNotifications(data);
+      } catch (error) {
+        console.error('Erro ao carregar notificações:', error);
+        setError('Não foi possível carregar suas notificações. Tente novamente mais tarde.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadNotifications();
+  }, [token]);
   
   // Função para marcar todas como lidas
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, read: true }))
-    );
+  const markAllAsRead = async () => {
+    if (!token) return;
+    
+    try {
+      const promises = notifications.filter(n => !n.lida).map(n => 
+        api.notifications.markAsRead(n.id, token)
+      );
+      
+      await Promise.all(promises);
+      
+      // Atualizar estado local
+      setNotifications(prev => 
+        prev.map(notification => ({ ...notification, lida: true }))
+      );
+    } catch (error) {
+      console.error('Erro ao marcar notificações como lidas:', error);
+      setError('Não foi possível marcar as notificações como lidas. Tente novamente mais tarde.');
+    }
   };
-
-  // Função para limpar todas as notificações
-  const clearAll = () => {
-    setNotifications([]);
-  };
-
+  
   // Função para marcar uma notificação como lida
-  const markAsRead = (id: number) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, read: true } 
-          : notification
-      )
-    );
+  const markAsRead = async (id: number) => {
+    if (!token) return;
+    
+    try {
+      await api.notifications.markAsRead(id, token);
+      
+      // Atualizar estado local
+      setNotifications(prev => 
+        prev.map(notification => 
+          notification.id === id 
+            ? { ...notification, lida: true } 
+            : notification
+        )
+      );
+    } catch (error) {
+      console.error('Erro ao marcar notificação como lida:', error);
+      setError('Não foi possível marcar a notificação como lida. Tente novamente mais tarde.');
+    }
   };
-
+  
   // Função para obter o ícone da notificação com base no tipo
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -104,22 +160,29 @@ export default function NotificacoesPage() {
           <Button 
             variant="outline" 
             onClick={markAllAsRead}
-            disabled={notifications.length === 0 || notifications.every(n => n.read)}
+            disabled={notifications.length === 0 || notifications.every(n => n.lida)}
           >
             Marcar todas como lidas
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={clearAll}
-            disabled={notifications.length === 0}
-          >
-            Limpar todas
           </Button>
         </div>
       </div>
 
+      {/* Mensagem de erro */}
+      {error && (
+        <Alert variant="destructive" title="Erro">
+          {error}
+        </Alert>
+      )}
+
       {/* Lista de notificações */}
-      {notifications.length === 0 ? (
+      {isLoading ? (
+        <Card>
+          <CardContent className="flex justify-center py-10">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+            <span className="ml-3">Carregando notificações...</span>
+          </CardContent>
+        </Card>
+      ) : notifications.length === 0 ? (
         <Card>
           <CardContent className="text-center py-10">
             <svg
@@ -142,39 +205,47 @@ export default function NotificacoesPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {notifications.map(notification => (
-            <Card key={notification.id} className={notification.read ? 'bg-white' : 'bg-blue-50 border-blue-200'}>
-              <CardContent className="p-4">
-                <div className="flex gap-4">
-                  {getNotificationIcon(notification.type)}
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="font-medium text-slate-900">{notification.title}</h4>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500">{formatDate(notification.date)}</span>
-                        {!notification.read && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => markAsRead(notification.id)}
-                            className="h-6 px-2 text-xs"
-                          >
-                            Marcar como lida
-                          </Button>
-                        )}
+          {notifications.map(notification => {
+            const notificationType = getNotificationType(notification.mensagem);
+            return (
+              <Card key={notification.id} className={notification.lida ? 'bg-white' : 'bg-blue-50 border-blue-200'}>
+                <CardContent className="p-4">
+                  <div className="flex gap-4">
+                    {getNotificationIcon(notificationType)}
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start mb-1">
+                        <h4 className="font-medium text-slate-900">
+                          {notificationType === 'status_change' && 'Alteração de Status'}
+                          {notificationType === 'comment' && 'Novo Comentário'}
+                          {notificationType === 'assignment' && 'Chamado Atribuído'}
+                          {notificationType === 'system' && 'Notificação do Sistema'}
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500">{formatDate(notification.criadaEm)}</span>
+                          {!notification.lida && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => markAsRead(notification.id)}
+                              className="h-6 px-2 text-xs"
+                            >
+                              Marcar como lida
+                            </Button>
+                          )}
+                        </div>
                       </div>
+                      <p className="text-sm text-slate-600">{notification.mensagem}</p>
                     </div>
-                    <p className="text-sm text-slate-600">{notification.description}</p>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
       <Alert variant="info" title="Configurações de notificações">
-        Você receberá notificações automáticas sempre que houver atualizações em seus chamados.
+        Você pode personalizar suas notificações na página do seu perfil.
       </Alert>
     </div>
   );
