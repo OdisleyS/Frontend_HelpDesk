@@ -321,7 +321,7 @@ export default function MeusChamadosPage() {
 
       {/* Alerta informativo */}
       <Alert variant="info" title="Dica">
-        Você pode filtrar seus chamados por status clicando nos botões acima. Para mais detalhes sobre um chamado específico, clique nele para ver seu histórico completo.
+        Para mais detalhes sobre um chamado específico, clique nele para ver seu histórico completo.
       </Alert>
     </div>
   );
