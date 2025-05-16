@@ -1,5 +1,5 @@
-// Modificações para src/app/cliente/perfil/page.tsx
-// Adicionando a parte de preferências de notificação
+// Modificação para src/app/cliente/perfil/page.tsx
+// Parte de preferências de notificação com salvamento automático
 
 'use client';
 
@@ -13,7 +13,7 @@ import { api } from '@/lib/api';
 
 export default function PerfilPage() {
   const { user, token } = useAuth();
-
+  
   const [formData, setFormData] = useState({
     nome: user?.nome || '',
     email: user?.email || '',
@@ -21,13 +21,13 @@ export default function PerfilPage() {
     novaSenha: '',
     confirmarSenha: '',
   });
-
+  
   const [notificationPreferences, setNotificationPreferences] = useState({
     notificarAtualizacao: true,
     notificarFechamento: true,
     notificarPorEmail: true,
   });
-
+  
   const [formErrors, setFormErrors] = useState({
     nome: '',
     senhaAtual: '',
@@ -46,9 +46,9 @@ export default function PerfilPage() {
   useEffect(() => {
     const loadPreferences = async () => {
       if (!token) return;
-
+      
       setIsLoadingPrefs(true);
-
+      
       try {
         const data = await api.notifications.getPreferences(token);
         setNotificationPreferences({
@@ -63,14 +63,14 @@ export default function PerfilPage() {
         setIsLoadingPrefs(false);
       }
     };
-
+    
     loadPreferences();
   }, [token]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-
+    
     // Limpar erro ao editar
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
@@ -84,54 +84,54 @@ export default function PerfilPage() {
       novaSenha: '',
       confirmarSenha: '',
     };
-
+    
     // Validações
     if (!formData.nome.trim()) {
       errors.nome = 'O nome é obrigatório';
     }
-
+    
     // Validações de senha apenas se o usuário estiver tentando alterá-la
     if (formData.novaSenha || formData.confirmarSenha) {
       if (!formData.senhaAtual) {
         errors.senhaAtual = 'A senha atual é necessária para confirmar a alteração';
       }
-
+      
       if (formData.novaSenha.length < 6) {
         errors.novaSenha = 'A nova senha deve ter pelo menos 6 caracteres';
       }
-
+      
       if (formData.novaSenha !== formData.confirmarSenha) {
         errors.confirmarSenha = 'As senhas não coincidem';
       }
     }
-
+    
     setFormErrors(errors);
-
+    
     // Retorna true se não houver erros
     return !Object.values(errors).some(error => error);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
+    
     if (!validateForm()) {
       return;
     }
-
+    
     setIsLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
-
+    
     try {
       // Simulação de atualização de perfil
       // Em um ambiente real, usaríamos algo como:
       // await api.users.updateProfile(formData);
-
+      
       // Simulação de tempo de processamento
       await new Promise(resolve => setTimeout(resolve, 1000));
-
+      
       setSuccessMessage('Perfil atualizado com sucesso!');
-
+      
       // Limpar campos de senha
       setFormData(prev => ({
         ...prev,
@@ -145,74 +145,82 @@ export default function PerfilPage() {
       setIsLoading(false);
     }
   };
-
-  // Função para lidar com mudanças nas preferências de notificação
-  const handlePreferenceChange = (preference: string) => {
-    setNotificationPreferences(prev => ({
-      ...prev,
-      [preference]: !prev[preference as keyof typeof prev],
-    }));
-  };
-
-  // Função para salvar preferências de notificação
-  const handleSavePreferences = async () => {
+  
+  // Função para lidar com mudanças nas preferências de notificação (com salvamento automático)
+  const handlePreferenceChange = async (preference: string) => {
     if (!token) return;
-
+    
+    // Cria um novo objeto com a preferência atualizada
+    const newPrefs = {
+      ...notificationPreferences,
+      [preference]: !notificationPreferences[preference as keyof typeof notificationPreferences],
+    };
+    
+    // Atualiza o estado local imediatamente para feedback visual instantâneo
+    setNotificationPreferences(newPrefs);
+    
+    // Mostra indicador visual sutil que está salvando
     setIsLoadingPrefs(true);
-    setPrefsErrorMessage('');
-    setPrefsSuccessMessage('');
-
+    
     try {
-      await api.notifications.updatePreferences(notificationPreferences, token);
-      setPrefsSuccessMessage('Preferências de notificação atualizadas com sucesso!');
-
-      // Limpar mensagem após alguns segundos
-      setTimeout(() => {
-        setPrefsSuccessMessage('');
-      }, 3000);
+      // Envia para o servidor em background
+      await api.notifications.updatePreferences(newPrefs, token);
+      
+      // Exibe mensagem de sucesso temporária
+      setPrefsSuccessMessage('Preferência atualizada com sucesso!');
+      setTimeout(() => setPrefsSuccessMessage(''), 2000);
     } catch (error) {
-      console.error('Erro ao atualizar preferências:', error);
-      setPrefsErrorMessage('Não foi possível atualizar suas preferências de notificação. Tente novamente mais tarde.');
+      console.error('Erro ao atualizar preferência:', error);
+      
+      // Em caso de erro, reverte a alteração no estado local
+      setNotificationPreferences({
+        ...notificationPreferences,
+        [preference]: notificationPreferences[preference as keyof typeof notificationPreferences],
+      });
+      
+      // Exibe mensagem de erro
+      setPrefsErrorMessage('Não foi possível atualizar a preferência. Tente novamente.');
+      setTimeout(() => setPrefsErrorMessage(''), 3000);
     } finally {
       setIsLoadingPrefs(false);
     }
   };
-
+  
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900">Meu Perfil</h2>
         <p className="text-slate-600 mt-1">Gerencie suas informações pessoais e preferências.</p>
       </div>
-
+      
       {/* Cartão de informações do usuário */}
       <Card>
         <CardHeader>
           <CardTitle>Informações da Conta</CardTitle>
         </CardHeader>
-
+        
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {errorMessage && (
-              <Alert
-                variant="destructive"
+              <Alert 
+                variant="destructive" 
                 title="Erro"
                 onClose={() => setErrorMessage('')}
               >
                 {errorMessage}
               </Alert>
             )}
-
+            
             {successMessage && (
-              <Alert
-                variant="success"
+              <Alert 
+                variant="success" 
                 title="Sucesso"
                 onClose={() => setSuccessMessage('')}
               >
                 {successMessage}
               </Alert>
             )}
-
+            
             <div className="flex items-center gap-4 mb-4">
               <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold">
                 {formData.nome?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
@@ -225,7 +233,8 @@ export default function PerfilPage() {
                 </p>
               </div>
             </div>
-
+            
+            {/* ... restante dos campos de informações pessoais ... */}
             <FormField
               id="nome"
               label="Nome completo"
@@ -240,7 +249,7 @@ export default function PerfilPage() {
                 autoFocus
               />
             </FormField>
-
+            
             <FormField
               id="email"
               label="Email"
@@ -255,10 +264,10 @@ export default function PerfilPage() {
               />
               <p className="text-xs text-slate-500 mt-1">O email não pode ser alterado.</p>
             </FormField>
-
+            
             <div className="border-t border-slate-200 my-6 pt-6">
               <h4 className="font-medium mb-4">Alterar Senha</h4>
-
+              
               <FormField
                 id="senhaAtual"
                 label="Senha atual"
@@ -273,7 +282,7 @@ export default function PerfilPage() {
                   error={!!formErrors.senhaAtual}
                 />
               </FormField>
-
+              
               <FormField
                 id="novaSenha"
                 label="Nova senha"
@@ -288,7 +297,7 @@ export default function PerfilPage() {
                   error={!!formErrors.novaSenha}
                 />
               </FormField>
-
+              
               <FormField
                 id="confirmarSenha"
                 label="Confirmar nova senha"
@@ -297,7 +306,6 @@ export default function PerfilPage() {
                 <Input
                   id="confirmarSenha"
                   name="confirmarSenha"
-                  // Continuação do src/app/cliente/perfil/page.tsx
                   type="password"
                   value={formData.confirmarSenha}
                   onChange={handleChange}
@@ -306,7 +314,7 @@ export default function PerfilPage() {
               </FormField>
             </div>
           </CardContent>
-
+          
           <CardFooter className="justify-end">
             <Button
               type="submit"
@@ -317,8 +325,8 @@ export default function PerfilPage() {
           </CardFooter>
         </form>
       </Card>
-
-      {/* Configurações de notificações */}
+      
+      {/* Configurações de notificações com salvamento automático */}
       <Card>
         <CardHeader>
           <CardTitle>Preferências de Notificação</CardTitle>
@@ -334,7 +342,7 @@ export default function PerfilPage() {
               {prefsErrorMessage}
             </Alert>
           )}
-
+          
           {prefsSuccessMessage && (
             <Alert
               variant="success"
@@ -345,74 +353,68 @@ export default function PerfilPage() {
               {prefsSuccessMessage}
             </Alert>
           )}
-
-          {isLoadingPrefs ? (
-            <div className="flex justify-center py-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
-              <span className="ml-2">Carregando preferências...</span>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Atualizações de chamados</h4>
-                  <p className="text-sm text-slate-500">Receba notificações quando seus chamados forem atualizados</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationPreferences.notificarAtualizacao}
-                    onChange={() => handlePreferenceChange('notificarAtualizacao')}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Fechamento de chamados</h4>
-                  <p className="text-sm text-slate-500">Receba notificações quando seus chamados forem concluídos</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationPreferences.notificarFechamento}
-                    onChange={() => handlePreferenceChange('notificarFechamento')}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Notificações por email</h4>
-                  <p className="text-sm text-slate-500">Receba um email quando houver atualizações importantes</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationPreferences.notificarPorEmail}
-                    onChange={() => handlePreferenceChange('notificarPorEmail')}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
+          
+          {isLoadingPrefs && (
+            <div className="absolute top-2 right-2">
+              <div className="w-4 h-4 border-2 border-t-transparent border-blue-600 rounded-full animate-spin"></div>
             </div>
           )}
+          
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Atualizações de chamados</h4>
+                <p className="text-sm text-slate-500">Receba notificações quando seus chamados forem atualizados</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={notificationPreferences.notificarAtualizacao} 
+                  onChange={() => handlePreferenceChange('notificarAtualizacao')} 
+                  className="sr-only peer" 
+                  disabled={isLoadingPrefs}
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Fechamento de chamados</h4>
+                <p className="text-sm text-slate-500">Receba notificações quando seus chamados forem concluídos</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={notificationPreferences.notificarFechamento} 
+                  onChange={() => handlePreferenceChange('notificarFechamento')} 
+                  className="sr-only peer" 
+                  disabled={isLoadingPrefs}
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Notificações por email</h4>
+                <p className="text-sm text-slate-500">Receba um email quando houver atualizações importantes</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={notificationPreferences.notificarPorEmail} 
+                  onChange={() => handlePreferenceChange('notificarPorEmail')} 
+                  className="sr-only peer" 
+                  disabled={isLoadingPrefs}
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+          </div>
         </CardContent>
-        <CardFooter className="justify-end">
-          <Button
-            onClick={handleSavePreferences}
-            disabled={isLoadingPrefs}
-          >
-            {isLoadingPrefs ? 'Salvando...' : 'Salvar Preferências'}
-          </Button>
-        </CardFooter>
       </Card>
-
+      
       <Alert variant="info" title="Segurança da Conta">
         Recomendamos alterar sua senha regularmente para manter sua conta segura. Nunca compartilhe suas credenciais com terceiros.
       </Alert>
