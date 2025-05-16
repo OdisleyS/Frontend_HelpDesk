@@ -1,5 +1,4 @@
 // src/components/gestor/gestor-sidebar.tsx
-
 'use client';
 
 import Link from 'next/link';
@@ -15,13 +14,25 @@ const HomeIcon = () => (
 
 const StatsIcon = () => (
   <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 002 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
   </svg>
 );
 
 const UsersIcon = () => (
   <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+);
+
+const CategoryIcon = () => (
+  <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+  </svg>
+);
+
+const DepartmentIcon = () => (
+  <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
   </svg>
 );
 
@@ -43,12 +54,22 @@ const LogoutIcon = () => (
   </svg>
 );
 
+const SlaIcon = () => (
+  <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+
 // Definição de itens do menu
 const menuItems = [
   { icon: HomeIcon, name: 'Dashboard', path: '/gestor' },
-  { icon: StatsIcon, name: 'Estatísticas', path: '/gestor/estatisticas' },
-  { icon: UsersIcon, name: 'Usuários', path: '/gestor/usuarios' },
   { icon: NotificationIcon, name: 'Notificações', path: '/gestor/notificacoes' },
+  { icon: DepartmentIcon, name: 'Departamentos', path: '/gestor/departamentos' },
+  { icon: CategoryIcon, name: 'Categorias', path: '/gestor/categorias' },
+  { icon: UsersIcon, name: 'Usuários', path: '/gestor/usuarios' },
+  { icon: StatsIcon, name: 'Estatísticas', path: '/gestor/estatisticas' },
+  { icon: SlaIcon, name: 'SLA por Categoria', path: '/gestor/sla'},
   { icon: ProfileIcon, name: 'Meu Perfil', path: '/gestor/perfil' },
 ];
 
@@ -57,7 +78,20 @@ export default function GestorSidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="w-64 bg-white border-r border-slate-200 h-screen">
+    <aside
+      style={{
+        width: '16rem',  // 256px (w-64)
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: 'white',
+        borderRight: '1px solid #e2e8f0',
+        zIndex: 10,
+      }}
+    >
       {/* Logo */}
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center gap-2">
@@ -79,8 +113,15 @@ export default function GestorSidebar() {
       </div>
 
       {/* Menu Items */}
-      <nav className="mt-4 px-4">
-        <ul className="space-y-2">
+      <div
+        style={{
+          flex: '1 1 auto',
+          overflowY: 'auto',
+          paddingTop: '1rem',
+          paddingBottom: '1rem',
+        }}
+      >
+        <ul className="px-4 space-y-2">
           {menuItems.map((item) => {
             const isActive = pathname === item.path;
             return (
@@ -100,10 +141,17 @@ export default function GestorSidebar() {
             );
           })}
         </ul>
-      </nav>
+      </div>
 
       {/* Logout */}
-      <div className="absolute bottom-0 w-64 p-4 border-t border-slate-200">
+      <div
+        style={{
+          borderTop: '1px solid #e2e8f0',
+          padding: '1rem',
+          marginTop: 'auto',
+          backgroundColor: 'white',
+        }}
+      >
         <button
           onClick={logout}
           className="flex items-center w-full gap-3 px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
@@ -112,6 +160,6 @@ export default function GestorSidebar() {
           <span>Sair</span>
         </button>
       </div>
-    </div>
+    </aside>
   );
 }

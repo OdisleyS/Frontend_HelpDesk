@@ -1,4 +1,4 @@
-// src/app/cliente/meus-chamados/page.tsx
+// src/app/tecnico/meus-atendimentos/page.tsx
 
 'use client';
 
@@ -10,17 +10,6 @@ import { Alert } from '@/components/ui/alert';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api';
 
-// Enum para filtro de status
-enum StatusFilter {
-  TODOS = 'TODOS',
-  ABERTO = 'ABERTO',
-  EM_ANALISE = 'EM_ANALISE',
-  EM_ATENDIMENTO = 'EM_ATENDIMENTO',
-  AGUARDANDO_CLIENTE = 'AGUARDANDO_CLIENTE',
-  RESOLVIDO = 'RESOLVIDO',
-  FECHADO = 'FECHADO'
-}
-
 // Interface para o ticket (chamado)
 interface Ticket {
   id: number;
@@ -30,9 +19,14 @@ interface Ticket {
   categoria: string;
   abertoEm: string;
   prazoSla: string;
+  tecnico: {
+    id: number;
+    nome: string;
+    email: string;
+  } | null;
 }
 
-// Componente de status visuais
+// Componentes de status e prioridade (reutilizados)
 const StatusBadge = ({ status }: { status: string }) => {
   const getStatusColorClasses = (status: string) => {
     switch (status) {
@@ -79,7 +73,6 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
-// Componente para exibir a prioridade
 const PriorityBadge = ({ priority }: { priority: string }) => {
   const getPriorityColorClasses = (priority: string) => {
     switch (priority) {
@@ -127,15 +120,15 @@ const formatDate = (dateString: string) => {
   }).format(date);
 };
 
-export default function MeusChamadosPage() {
+export default function TecnicoMeusAtendimentosPage() {
   const router = useRouter();
   const { token, user } = useAuth();
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(StatusFilter.TODOS);
+  const [statusFilter, setStatusFilter] = useState<string>('EM_ATENDIMENTO');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [welcomeMessage, setWelcomeMessage] = useState('');
   
+  // Carregar chamados
   useEffect(() => {
     const loadTickets = async () => {
       if (!token) return;
@@ -144,31 +137,16 @@ export default function MeusChamadosPage() {
       setError('');
       
       try {
-        // Se o filtro for TODOS, precisamos fazer múltiplas chamadas para cada status
-        if (statusFilter === StatusFilter.TODOS) {
-          // Array de todos os status que queremos buscar
-          const statusesToFetch = [
-            'ABERTO', 'EM_ANALISE', 'EM_ATENDIMENTO', 
-            'AGUARDANDO_CLIENTE', 'RESOLVIDO', 'FECHADO'
-          ];
-          
-          // Buscar todos os status em paralelo
-          const allTicketsPromises = statusesToFetch.map(status => 
-            api.tickets.listByStatus(status, token));
-          
-          const results = await Promise.all(allTicketsPromises);
-          
-          // Combinar todos os resultados em um único array
-          const allTickets = results.flat();
-          setTickets(allTickets);
-        } else {
-          // Buscar apenas o status selecionado
-          const data = await api.tickets.listByStatus(statusFilter, token);
-          setTickets(data);
-        }
+        // Aqui usamos a função para buscar chamados do técnico atual
+        const data = await api.tickets.getMyTickets(token);
+        // Filtrar pelo status selecionado (se não for "TODOS")
+        const filteredData = statusFilter === 'TODOS' 
+          ? data 
+          : data.filter((ticket: Ticket) => ticket.status === statusFilter);
+        setTickets(filteredData);
       } catch (error) {
         console.error('Erro ao carregar chamados:', error);
-        setError('Não foi possível carregar seus chamados. Tente novamente mais tarde.');
+        setError('Não foi possível carregar seus atendimentos. Tente novamente mais tarde.');
       } finally {
         setIsLoading(false);
       }
@@ -179,58 +157,48 @@ export default function MeusChamadosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho com mensagem de boas-vindas */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">{welcomeMessage}</h1>
-      </div>
-      {/* Cabeçalho da página de chamados */}
+      {/* Cabeçalho da página */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Meus Chamados</h2>
-          <p className="text-slate-600 mt-1">Visualize e gerencie seus chamados de suporte.</p>
+          <h2 className="text-2xl font-bold text-slate-900">Meus Atendimentos</h2>
+          <p className="text-slate-600 mt-1">Gerenciar chamados que estão sob sua responsabilidade.</p>
         </div>
-        <Button onClick={() => router.push('/cliente/abrir-chamado')}>
-          <svg className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Novo Chamado
-        </Button>
       </div>
 
       {/* Filtros */}
       <div className="bg-white p-4 rounded-lg border border-slate-200">
         <div className="flex flex-wrap gap-2">
           <Button 
-            variant={statusFilter === StatusFilter.TODOS ? 'default' : 'outline'}
-            onClick={() => setStatusFilter(StatusFilter.TODOS)}
+            variant={statusFilter === 'TODOS' ? 'default' : 'outline'}
+            onClick={() => setStatusFilter('TODOS')}
             size="sm"
           >
             Todos
           </Button>
           <Button 
-            variant={statusFilter === StatusFilter.ABERTO ? 'default' : 'outline'}
-            onClick={() => setStatusFilter(StatusFilter.ABERTO)}
+            variant={statusFilter === 'EM_ANALISE' ? 'default' : 'outline'}
+            onClick={() => setStatusFilter('EM_ANALISE')}
             size="sm"
           >
-            Abertos
+            Em Análise
           </Button>
           <Button 
-            variant={statusFilter === StatusFilter.EM_ATENDIMENTO ? 'default' : 'outline'}
-            onClick={() => setStatusFilter(StatusFilter.EM_ATENDIMENTO)}
+            variant={statusFilter === 'EM_ATENDIMENTO' ? 'default' : 'outline'}
+            onClick={() => setStatusFilter('EM_ATENDIMENTO')}
             size="sm"
           >
             Em Atendimento
           </Button>
           <Button 
-            variant={statusFilter === StatusFilter.AGUARDANDO_CLIENTE ? 'default' : 'outline'}
-            onClick={() => setStatusFilter(StatusFilter.AGUARDANDO_CLIENTE)}
+            variant={statusFilter === 'AGUARDANDO_CLIENTE' ? 'default' : 'outline'}
+            onClick={() => setStatusFilter('AGUARDANDO_CLIENTE')}
             size="sm"
           >
-            Aguardando Você
+            Aguardando Cliente
           </Button>
           <Button 
-            variant={statusFilter === StatusFilter.RESOLVIDO ? 'default' : 'outline'}
-            onClick={() => setStatusFilter(StatusFilter.RESOLVIDO)}
+            variant={statusFilter === 'RESOLVIDO' ? 'default' : 'outline'}
+            onClick={() => setStatusFilter('RESOLVIDO')}
             size="sm"
           >
             Resolvidos
@@ -250,7 +218,7 @@ export default function MeusChamadosPage() {
         <Card>
           <CardContent className="flex justify-center py-10">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
-            <span className="ml-3">Carregando chamados...</span>
+            <span className="ml-3">Carregando atendimentos...</span>
           </CardContent>
         </Card>
       ) : tickets.length === 0 ? (
@@ -270,17 +238,14 @@ export default function MeusChamadosPage() {
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            <h3 className="text-lg font-medium text-slate-700 mt-4">Nenhum chamado encontrado</h3>
+            <h3 className="text-lg font-medium text-slate-700 mt-4">Nenhum atendimento encontrado</h3>
             <p className="text-slate-500 mt-2">
-              {statusFilter === StatusFilter.TODOS 
-                ? 'Você ainda não possui chamados registrados.' 
-                : `Você não possui chamados com status "${StatusFilter[statusFilter].replace('_', ' ').toLowerCase()}".`}
+              {statusFilter === 'TODOS' 
+                ? 'Você não possui chamados atribuídos a você no momento.' 
+                : `Você não possui chamados com status "${statusFilter.replace('_', ' ').toLowerCase()}" no momento.`}
             </p>
-            <Button className="mt-4" onClick={() => router.push('/cliente/abrir-chamado')}>
-              <svg className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Abrir Novo Chamado
+            <Button className="mt-4" onClick={() => router.push('/tecnico/chamados')}>
+              Ver Chamados Disponíveis
             </Button>
           </CardContent>
         </Card>
@@ -289,12 +254,12 @@ export default function MeusChamadosPage() {
           {tickets.map(ticket => (
             <div 
               key={ticket.id} 
-              onClick={() => router.push(`/cliente/chamado/${ticket.id}`)} 
+              onClick={() => router.push(`/tecnico/chamados/${ticket.id}`)} 
               className="cursor-pointer"
             >
               <Card className="hover:border-blue-300 transition-colors">
                 <CardContent className="p-4">
-                  <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+                  <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
                     <div>
                       <h3 className="font-medium text-lg text-slate-900">{ticket.titulo}</h3>
                       <div className="flex flex-wrap gap-2 mt-1">
@@ -304,12 +269,17 @@ export default function MeusChamadosPage() {
                           {ticket.categoria}
                         </span>
                       </div>
+                      <div className="text-sm text-slate-500 mt-2">
+                        <div>Aberto em: {formatDate(ticket.abertoEm)}</div>
+                        {ticket.prazoSla && (
+                          <div>Prazo: {formatDate(ticket.prazoSla)}</div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-sm text-slate-500">
-                      <div>Aberto em: {formatDate(ticket.abertoEm)}</div>
-                      {ticket.prazoSla && (
-                        <div>Prazo: {formatDate(ticket.prazoSla)}</div>
-                      )}
+                    <div>
+                      <Button variant="outline" size="sm">
+                        Ver Detalhes
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -321,7 +291,8 @@ export default function MeusChamadosPage() {
 
       {/* Alerta informativo */}
       <Alert variant="info" title="Dica">
-        Para mais detalhes sobre um chamado específico, clique nele para ver seu histórico completo.
+        Lembre-se de manter o cliente informado sobre o progresso do atendimento.
+        Você pode adicionar comentários e mudar o status dos chamados na página de detalhes.
       </Alert>
     </div>
   );

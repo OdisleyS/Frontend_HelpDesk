@@ -4,7 +4,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { jwtDecode } from 'jwt-decode'; 
+import { jwtDecode } from 'jwt-decode';
 import { api } from '@/lib/api';
 import { AuthState, LoginRequest, RegisterRequest, VerifyRequest, UserData, ApiError } from '@/types/auth';
 
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Limpar erro
   const clearError = () => setError(null);
-  
+
   // Limpar mensagem de sucesso
   const clearSuccess = () => setSuccessMessage(null);
 
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       // Obter roles do token JWT
       let roles: string[] = [];
-      
+
       // Verificar diferentes formatos possíveis de roles
       if (decoded.roles) {
         if (typeof decoded.roles === 'string') {
@@ -111,7 +111,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (e) {
       console.error('Erro ao determinar tipo de usuário:', e);
     }
-    
+
     console.log('Tipo de usuário identificado:', userType);
     return userType;
   };
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         // Recupera o token do localStorage
         const token = localStorage.getItem('token');
-        
+
         if (!token) {
           setState({ ...initialState, isLoading: false });
           return;
@@ -131,7 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Decodifica o token para obter os dados do usuário
         const decoded = jwtDecode(token);
         console.log('Token JWT decodificado:', decoded);
-        
+
         // Verifica se o token expirou (exp está em segundos, Date.now() em milissegundos)
         if (decoded.exp && decoded.exp * 1000 < Date.now()) {
           console.log('Token expirado');
@@ -172,37 +172,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
       clearError();
       clearSuccess();
       setState(prev => ({ ...prev, isLoading: true }));
-      
+
       const response = await api.auth.login(data);
-      
+
       // Salva o token no localStorage
       localStorage.setItem('token', response.token);
-      
+
       // Decodifica o token para obter os dados do usuário
       const decoded = jwtDecode(response.token);
       console.log('Token JWT após login:', decoded);
-      
+
       // Determinar tipo de usuário
       const userType = determineUserType(decoded);
-      
+
       // Cria objeto de usuário
       const userData: UserData = {
         email: decoded.sub as string,
         tipo: userType as any,
         nome: (decoded.sub as string).split('@')[0] // Nome simplificado a partir do email
       };
-      
+
       setState({
         user: userData,
         token: response.token,
         isAuthenticated: true,
         isLoading: false,
       });
-      
+
       // Navega para o dashboard apropriado com base na role
       switch (userType) {
         case 'CLIENTE':
-          router.push('/cliente');
+          router.push('/cliente/meus-chamados'); // Alterado de '/cliente' para '/cliente/meus-chamados'
           break;
         case 'TECNICO':
           router.push('/tecnico');
@@ -211,7 +211,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           router.push('/gestor');
           break;
         default:
-          router.push('/cliente'); // Fallback para cliente
+          router.push('/cliente/meus-chamados'); // Alterado de '/cliente' para '/cliente/meus-chamados'
       }
     } catch (err) {
       const apiError = err as ApiError;
@@ -229,17 +229,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       clearError();
       clearSuccess();
       setState(prev => ({ ...prev, isLoading: true }));
-      
+
       const response = await api.auth.register(data);
-      
+
       setState(prev => ({ ...prev, isLoading: false }));
-      
+
       // Define a mensagem de sucesso
       setSuccessMessage('Código enviado para seu email. Verifique sua caixa de entrada.');
-      
+
       // Navega para a página de verificação com o email como parâmetro
       router.push(`/verify?email=${encodeURIComponent(data.email)}`);
-      
+
       return response;
     } catch (err) {
       const apiError = err as ApiError;
@@ -258,17 +258,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       clearError();
       clearSuccess();
       setState(prev => ({ ...prev, isLoading: true }));
-      
+
       const response = await api.auth.verifyCode(data);
-      
+
       setState(prev => ({ ...prev, isLoading: false }));
-      
+
       // Define a mensagem de sucesso
       setSuccessMessage('Conta verificada com sucesso! Agora você pode fazer login.');
-      
+
       // Navega para a página de login
       router.push('/login');
-      
+
       return response;
     } catch (err) {
       const apiError = err as ApiError;
@@ -310,10 +310,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 // Hook para usar o contexto de autenticação
 export function useAuth() {
   const context = useContext(AuthContext);
-  
+
   if (context === undefined) {
     throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   }
-  
+
   return context;
 }

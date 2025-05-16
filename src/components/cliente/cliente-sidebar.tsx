@@ -1,3 +1,4 @@
+// 1. Solução mais robusta para o ClienteSidebar
 // src/components/cliente/cliente-sidebar.tsx
 
 'use client';
@@ -45,8 +46,7 @@ const LogoutIcon = () => (
 
 // Definição de itens do menu
 const menuItems = [
-  { icon: HomeIcon, name: 'Dashboard', path: '/cliente' },
-  { icon: TicketsIcon, name: 'Meus Chamados', path: '/cliente/meus-chamados' },
+  { icon: HomeIcon, name: 'Meus Chamados', path: '/cliente/meus-chamados' },
   { icon: AddIcon, name: 'Abrir Chamado', path: '/cliente/abrir-chamado' },
   { icon: NotificationIcon, name: 'Notificações', path: '/cliente/notificacoes' },
   { icon: ProfileIcon, name: 'Meu Perfil', path: '/cliente/perfil' },
@@ -57,7 +57,8 @@ export default function ClienteSidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="w-64 bg-white border-r border-slate-200 h-screen">
+    // Sidebar container com posição fixed e height 100vh para garantir que ocupe toda a altura da tela
+    <div className="fixed top-0 left-0 w-64 h-full bg-white border-r border-slate-200 flex flex-col overflow-hidden">
       {/* Logo */}
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center gap-2">
@@ -78,9 +79,9 @@ export default function ClienteSidebar() {
         </div>
       </div>
 
-      {/* Menu Items */}
-      <nav className="mt-4 px-4">
-        <ul className="space-y-2">
+      {/* Menu Items com overflow-y-auto para permitir rolagem se necessário */}
+      <nav className="flex-grow overflow-y-auto">
+        <ul className="p-4 space-y-2">
           {menuItems.map((item) => {
             const isActive = pathname === item.path;
             return (
@@ -102,8 +103,8 @@ export default function ClienteSidebar() {
         </ul>
       </nav>
 
-      {/* Logout */}
-      <div className="absolute bottom-0 w-64 p-4 border-t border-slate-200">
+      {/* Logout - sticky na parte inferior */}
+      <div className="sticky bottom-0 w-full border-t border-slate-200 bg-white p-4">
         <button
           onClick={logout}
           className="flex items-center w-full gap-3 px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-md transition-colors"

@@ -5,7 +5,7 @@
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, ReactNode } from 'react';
-import TecnicoSidebar from '@/components/tecnico/tecnico-sidebar'; 
+import TecnicoSidebar from '@/components/tecnico/tecnico-sidebar';
 import TecnicoHeader from '@/components/tecnico/tecnico-header';
 
 export default function TecnicoLayout({
@@ -47,10 +47,10 @@ export default function TecnicoLayout({
       {/* Sidebar */}
       <TecnicoSidebar />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      {/* Main Content - Com margem-esquerda para não sobrepor o sidebar */}
+      <div className="flex-1 ml-64">
         <TecnicoHeader />
-        <main className="flex-1 p-6">
+        <main className="p-6">
           {children}
         </main>
       </div>

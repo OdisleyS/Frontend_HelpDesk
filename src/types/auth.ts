@@ -20,6 +20,7 @@ export interface LoginResponse {
 }
 
 export interface UserData {
+  id?: number;
   email: string;
   nome?: string;
   tipo: 'CLIENTE' | 'TECNICO' | 'GESTOR'; // Tipos de usuário conforme enum do backend
