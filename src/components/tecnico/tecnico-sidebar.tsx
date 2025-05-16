@@ -47,7 +47,6 @@ const menuItems = [
   { icon: HomeIcon, name: 'Dashboard', path: '/tecnico' },
   { icon: TicketsIcon, name: 'Chamados', path: '/tecnico/chamados' },
   { icon: TicketsIcon, name: 'Meus Atendimentos', path: '/tecnico/meus-atendimentos' },
-  { icon: CategoryIcon, name: 'Categorias', path: '/tecnico/categorias' },
   { icon: NotificationIcon, name: 'Notificações', path: '/tecnico/notificacoes' },
   { icon: ProfileIcon, name: 'Meu Perfil', path: '/tecnico/perfil' },
 ];
