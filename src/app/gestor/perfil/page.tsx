@@ -2,15 +2,16 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input, FormField } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
+import { api } from '@/lib/api';
 
 export default function GestorPerfilPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   
   const [formData, setFormData] = useState({
     nome: user?.nome || '',
@@ -18,6 +19,12 @@ export default function GestorPerfilPage() {
     senhaAtual: '',
     novaSenha: '',
     confirmarSenha: '',
+  });
+  
+  const [notificationPreferences, setNotificationPreferences] = useState({
+    notificarAtualizacao: true,
+    notificarFechamento: true,
+    notificarPorEmail: true,
   });
   
   const [formErrors, setFormErrors] = useState({
@@ -28,8 +35,36 @@ export default function GestorPerfilPage() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPrefs, setIsLoadingPrefs] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [prefsSuccessMessage, setPrefsSuccessMessage] = useState('');
+  const [prefsErrorMessage, setPrefsErrorMessage] = useState('');
+
+  // Carregar preferências do usuário
+  useEffect(() => {
+    const loadPreferences = async () => {
+      if (!token) return;
+      
+      setIsLoadingPrefs(true);
+      
+      try {
+        const data = await api.notifications.getPreferences(token);
+        setNotificationPreferences({
+          notificarAtualizacao: data.notificarAtualizacao,
+          notificarFechamento: data.notificarFechamento,
+          notificarPorEmail: data.notificarPorEmail,
+        });
+      } catch (error) {
+        console.error('Erro ao carregar preferências:', error);
+        setPrefsErrorMessage('Não foi possível carregar suas preferências de notificação.');
+      } finally {
+        setIsLoadingPrefs(false);
+      }
+    };
+    
+    loadPreferences();
+  }, [token]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -39,6 +74,9 @@ export default function GestorPerfilPage() {
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
+    
+    // Limpar mensagem de erro quando o usuário começa a editar o formulário novamente
+    if (errorMessage) setErrorMessage('');
   };
 
   const validateForm = () => {
@@ -110,11 +148,51 @@ export default function GestorPerfilPage() {
     }
   };
   
+  // Função para lidar com mudanças nas preferências de notificação (com salvamento automático)
+  const handlePreferenceChange = async (preference: string) => {
+    if (!token) return;
+    
+    // Cria um novo objeto com a preferência atualizada
+    const newPrefs = {
+      ...notificationPreferences,
+      [preference]: !notificationPreferences[preference as keyof typeof notificationPreferences],
+    };
+    
+    // Atualiza o estado local imediatamente para feedback visual instantâneo
+    setNotificationPreferences(newPrefs);
+    
+    // Mostra indicador visual sutil que está salvando
+    setIsLoadingPrefs(true);
+    
+    try {
+      // Envia para o servidor em background
+      await api.notifications.updatePreferences(newPrefs, token);
+      
+      // Exibe mensagem de sucesso temporária
+      setPrefsSuccessMessage('Preferência atualizada com sucesso!');
+      setTimeout(() => setPrefsSuccessMessage(''), 2000);
+    } catch (error) {
+      console.error('Erro ao atualizar preferência:', error);
+      
+      // Em caso de erro, reverte a alteração no estado local
+      setNotificationPreferences({
+        ...notificationPreferences,
+        [preference]: notificationPreferences[preference as keyof typeof notificationPreferences],
+      });
+      
+      // Exibe mensagem de erro
+      setPrefsErrorMessage('Não foi possível atualizar a preferência. Tente novamente.');
+      setTimeout(() => setPrefsErrorMessage(''), 3000);
+    } finally {
+      setIsLoadingPrefs(false);
+    }
+  };
+  
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900">Meu Perfil</h2>
-        <p className="text-slate-600 mt-1">Gerencie suas informações pessoais e preferências.</p>
+        <p className="text-slate-600 mt-1">Gerencie suas informações pessoais e preferências de notificação.</p>
       </div>
       
       {/* Cartão de informações do usuário */}
@@ -152,7 +230,7 @@ export default function GestorPerfilPage() {
               <div>
                 <h3 className="font-semibold text-lg">{formData.nome || user?.email?.split('@')[0]}</h3>
                 <p className="text-slate-500">{user?.email}</p>
-                <p className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full inline-block mt-1">
+                <p className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full inline-block mt-1">
                   {user?.tipo || 'Gestor'}
                 </p>
               </div>
@@ -249,20 +327,54 @@ export default function GestorPerfilPage() {
         </form>
       </Card>
       
-      {/* Configurações adicionais para gestores */}
+      {/* Configurações de notificações com salvamento automático */}
       <Card>
         <CardHeader>
-          <CardTitle>Configurações de Gestor</CardTitle>
+          <CardTitle>Preferências de Notificação</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          {prefsErrorMessage && (
+            <Alert
+              variant="destructive"
+              title="Erro"
+              onClose={() => setPrefsErrorMessage('')}
+              className="mb-4"
+            >
+              {prefsErrorMessage}
+            </Alert>
+          )}
+          
+          {prefsSuccessMessage && (
+            <Alert
+              variant="success"
+              title="Sucesso"
+              onClose={() => setPrefsSuccessMessage('')}
+              className="mb-4"
+            >
+              {prefsSuccessMessage}
+            </Alert>
+          )}
+          
+          {isLoadingPrefs && (
+            <div className="absolute top-2 right-2">
+              <div className="w-4 h-4 border-2 border-t-transparent border-blue-600 rounded-full animate-spin"></div>
+            </div>
+          )}
+          
+          <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-medium">Notificações de novos chamados</h4>
-                <p className="text-sm text-slate-500">Receba alertas quando novos chamados forem abertos</p>
+                <h4 className="font-medium">Novos chamados</h4>
+                <p className="text-sm text-slate-500">Receba notificações quando novos chamados forem abertos no sistema</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" defaultChecked className="sr-only peer" />
+                <input 
+                  type="checkbox" 
+                  checked={notificationPreferences.notificarAtualizacao} 
+                  onChange={() => handlePreferenceChange('notificarAtualizacao')} 
+                  className="sr-only peer" 
+                  disabled={isLoadingPrefs}
+                />
                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
             </div>
@@ -273,7 +385,13 @@ export default function GestorPerfilPage() {
                 <p className="text-sm text-slate-500">Receba relatórios resumidos do sistema por email</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" defaultChecked className="sr-only peer" />
+                <input 
+                  type="checkbox" 
+                  checked={notificationPreferences.notificarFechamento} 
+                  onChange={() => handlePreferenceChange('notificarFechamento')} 
+                  className="sr-only peer" 
+                  disabled={isLoadingPrefs}
+                />
                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
             </div>
@@ -284,7 +402,13 @@ export default function GestorPerfilPage() {
                 <p className="text-sm text-slate-500">Receba alertas quando chamados estiverem próximos de estourar o SLA</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" defaultChecked className="sr-only peer" />
+                <input 
+                  type="checkbox" 
+                  checked={notificationPreferences.notificarPorEmail} 
+                  onChange={() => handlePreferenceChange('notificarPorEmail')} 
+                  className="sr-only peer" 
+                  disabled={isLoadingPrefs}
+                />
                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
             </div>
@@ -292,8 +416,8 @@ export default function GestorPerfilPage() {
         </CardContent>
       </Card>
       
-      <Alert variant="info" title="Segurança da Conta">
-        Recomendamos alterar sua senha regularmente para manter sua conta segura. Nunca compartilhe suas credenciais com terceiros.
+      <Alert variant="info" title="Segurança do Sistema">
+        Como gestor, você tem acesso a funcionalidades privilegiadas do sistema. Mantenha sua senha segura e atualizada regularmente. Lembre-se de que suas ações ficam registradas no log do sistema para fins de auditoria.
       </Alert>
     </div>
   );
