@@ -382,7 +382,6 @@ const tickets = {
     }
   },
 
-  // Corrija esta função no arquivo src/lib/api.ts
   addComment: async (id: number, comment: string, token: string): Promise<void> => {
     try {
       const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/comment`, {
@@ -403,6 +402,28 @@ const tickets = {
       throw error;
     }
   },
+
+  // Nova função para atualizar prioridade
+  updatePriority: async (id: number, priority: string, comment: string, token: string): Promise<void> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/prioridade?novaPrioridade=${priority}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ comment })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Falha ao atualizar prioridade do chamado');
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar prioridade:', error);
+      throw error;
+    }
+  }
 };
 
 // Funções de usuários
@@ -521,103 +542,71 @@ const sla = {
   },
 };
 
-
-// Adição ao src/lib/api.ts - Nova seção para notificações
-
-// Interface para notificações
-export interface Notification {
-  id: number;
-  mensagem: string;
-  lida: boolean;
-  criadaEm: string;
-}
-
 // Funções de notificações
 const notifications = {
-  // Listar notificações do usuário
-  list: async (token: string): Promise<Notification[]> => {
-    try {
-      const response = await fetch(`${BASE_URL}/api/v1/notificacoes`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+  list: async (token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/notificacoes`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error('Falha ao listar notificações');
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Erro ao buscar notificações:', error);
-      return []; // Retorna array vazio em caso de erro
+    if (!response.ok) {
+      throw new Error('Falha ao listar notificações');
     }
+
+    return response.json();
   },
 
-  // Marcar notificação como lida
-  markAsRead: async (id: number, token: string): Promise<void> => {
-    try {
-      const response = await fetch(`${BASE_URL}/api/v1/notificacoes/${id}/lida`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+  markAsRead: async (id: number, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/notificacoes/${id}/lida`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error('Falha ao marcar notificação como lida');
-      }
-    } catch (error) {
-      console.error('Erro ao marcar notificação como lida:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error('Falha ao marcar notificação como lida');
     }
+
+    return;
   },
 
-  // Obter preferências de notificação
-  getPreferences: async (token: string): Promise<any> => {
-    try {
-      const response = await fetch(`${BASE_URL}/api/v1/usuarios/preferencias`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+  getPreferences: async (token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/usuarios/preferencias`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error('Falha ao obter preferências de notificação');
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Erro ao obter preferências de notificação:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error('Falha ao buscar preferências de notificação');
     }
+
+    return response.json();
   },
 
-  // Atualizar preferências de notificação
-  updatePreferences: async (preferences: any, token: string): Promise<void> => {
-    try {
-      const response = await fetch(`${BASE_URL}/api/v1/usuarios/preferencias`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(preferences),
-      });
+  updatePreferences: async (prefs: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/usuarios/preferencias`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(prefs),
+    });
 
-      if (!response.ok) {
-        throw new Error('Falha ao atualizar preferências de notificação');
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar preferências de notificação:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error('Falha ao atualizar preferências de notificação');
     }
+
+    return;
   },
 };
 
-// Adicionar à exportação
 export const api = {
   auth,
   categories,
@@ -625,7 +614,5 @@ export const api = {
   tickets,
   users,
   sla,
-  notifications, // Adicione esta linha
+  notifications,
 };
-
-

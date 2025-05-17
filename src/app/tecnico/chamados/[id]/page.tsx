@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { api } from '@/lib/api';
+import PriorityEditModal from '@/components/tecnico/priority-edit-modal';
 
 // Interface para o ticket (chamado)
 interface Ticket {
@@ -47,7 +48,7 @@ interface TicketHistory {
   criadoEm: string;
 }
 
-// Componentes de status e prioridade (reutilizados)
+// Componente de status visuais
 const StatusBadge = ({ status }: { status: string }) => {
   const getStatusColorClasses = (status: string) => {
     switch (status) {
@@ -152,6 +153,7 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
   const [successMessage, setSuccessMessage] = useState('');
   const [comment, setComment] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [showPriorityModal, setShowPriorityModal] = useState(false);
 
   // Carregar detalhes do chamado
   useEffect(() => {
@@ -167,13 +169,13 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
         setTicket(ticketData);
         setSelectedStatus(ticketData.status);
 
-        // Buscar histórico do chamado - com tratamento de erro silencioso
+        // Buscar histórico do chamado - sem tratamento de erro silencioso
         try {
           const historyData = await api.tickets.getHistory(Number(params.id), token);
           setHistory(historyData || []);
         } catch (historyError) {
-          console.warn('Não foi possível carregar o histórico completo:', historyError);
-          setHistory([]); // Define um array vazio em caso de erro
+          console.error('Erro ao carregar o histórico:', historyError);
+          setError('Não foi possível carregar o histórico. Tente novamente mais tarde.');
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do chamado:', error);
@@ -252,7 +254,7 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
     }
   };
 
-  // Função para resolver o chamado - CORRIGIDA
+  // Função para resolver o chamado
   const handleResolveTicket = async () => {
     if (!token || !ticket) return;
 
@@ -260,25 +262,7 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
     setError('');
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/tickets/${ticket.id}/resolve`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      // Verificar se a resposta é bem-sucedida mesmo se não houver JSON
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Erro ao resolver chamado: ${response.status} ${errorText}`);
-      }
-
-      // Não tentar analisar JSON se não houver conteúdo
-      if (response.headers.get('content-length') !== '0' &&
-        response.headers.get('content-type')?.includes('application/json')) {
-        await response.json(); // Só analisa se for realmente JSON
-      }
+      await api.tickets.resolveTicket(ticket.id, token);
 
       // Atualizar o ticket localmente
       setTicket(prev => prev ? { ...prev, status: 'RESOLVIDO' } : null);
@@ -335,6 +319,37 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
     } catch (error) {
       console.error('Erro ao adicionar comentário:', error);
       setError('Não foi possível adicionar o comentário. Tente novamente mais tarde.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Nova função para atualizar prioridade
+  const handleUpdatePriority = async (newPriority: string, comment: string) => {
+    if (!token || !ticket) return;
+
+    setIsUpdating(true);
+    setError('');
+
+    try {
+      await api.tickets.updatePriority(ticket.id, newPriority, comment, token);
+
+      // Atualizar o ticket localmente
+      setTicket(prev => prev ? { ...prev, prioridade: newPriority } : null);
+
+      // Recarregar o histórico para incluir o comentário
+      try {
+        const historyData = await api.tickets.getHistory(Number(params.id), token);
+        setHistory(historyData);
+      } catch (historyError) {
+        console.error('Erro ao carregar histórico após atualizar prioridade:', historyError);
+      }
+
+      setSuccessMessage('Prioridade atualizada com sucesso!');
+      setShowPriorityModal(false);
+    } catch (error) {
+      console.error('Erro ao atualizar prioridade:', error);
+      setError('Não foi possível atualizar a prioridade do chamado. Tente novamente mais tarde.');
     } finally {
       setIsUpdating(false);
     }
@@ -432,7 +447,21 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
               <p className="text-slate-900">{ticket.departamento}</p>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-slate-500">Prioridade</h3>
+              <h3 className="text-sm font-medium text-slate-500 flex items-center">
+                Prioridade
+                {/* Ícone de edição - apenas se o chamado estiver aberto e não tiver técnico atribuído */}
+                {ticket.status === 'ABERTO' && !ticket.tecnico && (
+                  <button 
+                    onClick={() => setShowPriorityModal(true)}
+                    className="ml-2 text-blue-600 hover:text-blue-800"
+                    title="Editar Prioridade"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                )}
+              </h3>
               <p><PriorityBadge priority={ticket.prioridade} /></p>
             </div>
             <div>
@@ -544,7 +573,7 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
         </Card>
       )}
 
-      {/* Histórico do chamado */}
+      {/* Histórico do chamado - sempre mostrar para técnicos */}
       <Card>
         <CardHeader>
           <CardTitle>Histórico do Chamado</CardTitle>
@@ -586,6 +615,16 @@ export default function TecnicoChamadoDetailsPage({ params }: { params: { id: st
         Este prazo representa o tempo máximo para a resolução do chamado de acordo com as políticas de atendimento.
         O técnico não precisa definir manualmente este prazo.
       </Alert>
+
+      {/* Modal para edição de prioridade */}
+      {showPriorityModal && (
+        <PriorityEditModal
+          ticketId={ticket.id}
+          currentPriority={ticket.prioridade}
+          onClose={() => setShowPriorityModal(false)}
+          onSave={handleUpdatePriority}
+        />
+      )}
     </div>
   );
 }
