@@ -1,4 +1,4 @@
-// src/app/gestor/perfil/page.tsx
+// src/app/tecnico/perfil/page.tsx
 
 'use client';
 
@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Alert } from '@/components/ui/alert';
 import { api } from '@/lib/api';
 
-export default function GestorPerfilPage() {
+export default function TecnicoPerfilPage() {
   const { user, token } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -225,13 +225,13 @@ export default function GestorPerfilPage() {
             
             <div className="flex items-center gap-4 mb-4">
               <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold">
-                {formData.nome?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'G'}
+                {formData.nome?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'T'}
               </div>
               <div>
                 <h3 className="font-semibold text-lg">{formData.nome || user?.email?.split('@')[0]}</h3>
                 <p className="text-slate-500">{user?.email}</p>
                 <p className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full inline-block mt-1">
-                  {user?.tipo || 'Gestor'}
+                  {user?.tipo || 'Técnico'}
                 </p>
               </div>
             </div>
@@ -364,8 +364,8 @@ export default function GestorPerfilPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-medium">Novos chamados</h4>
-                <p className="text-sm text-slate-500">Receba notificações quando novos chamados forem abertos no sistema</p>
+                <h4 className="font-medium">Atualizações de chamados</h4>
+                <p className="text-sm text-slate-500">Receba notificações quando houver atualizações nos chamados que você atende</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
@@ -381,8 +381,8 @@ export default function GestorPerfilPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-medium">Relatórios semanais</h4>
-                <p className="text-sm text-slate-500">Receba relatórios resumidos do sistema por email</p>
+                <h4 className="font-medium">Notificações de novos chamados</h4>
+                <p className="text-sm text-slate-500">Receba alertas quando novos chamados com alta prioridade forem abertos</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
@@ -398,8 +398,8 @@ export default function GestorPerfilPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-medium">Alertas de SLA</h4>
-                <p className="text-sm text-slate-500">Receba alertas quando chamados estiverem próximos de estourar o SLA</p>
+                <h4 className="font-medium">Notificações por email</h4>
+                <p className="text-sm text-slate-500">Receba um email quando houver atualizações importantes</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
@@ -416,8 +416,8 @@ export default function GestorPerfilPage() {
         </CardContent>
       </Card>
       
-      <Alert variant="info" title="Segurança do Sistema">
-        Como gestor, você tem acesso a funcionalidades privilegiadas do sistema. Mantenha sua senha segura e atualizada regularmente. Lembre-se de que suas ações ficam registradas no log do sistema para fins de auditoria.
+      <Alert variant="info" title="Dicas para técnicos">
+        Mantenha os clientes informados sobre o progresso dos chamados. Documentar suas ações nos comentários ajuda a manter a transparência e facilita o acompanhamento posterior do histórico de atendimento.
       </Alert>
     </div>
   );

@@ -4,6 +4,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
 
 // Ícones para o menu
 const HomeIcon = () => (
@@ -52,8 +54,31 @@ const menuItems = [
 ];
 
 export default function TecnicoSidebar() {
-  const { logout } = useAuth();
+  const { logout, token } = useAuth();
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Carregar contagem de notificações não lidas
+  useEffect(() => {
+    const fetchUnreadNotifications = async () => {
+      if (!token) return;
+
+      try {
+        const notifications = await api.notifications.list(token);
+        const unreadNotifications = notifications.filter(n => !n.lida);
+        setUnreadCount(unreadNotifications.length);
+      } catch (error) {
+        console.error('Erro ao carregar notificações não lidas:', error);
+      }
+    };
+
+    fetchUnreadNotifications();
+
+    // Definir um intervalo para verificar novas notificações a cada 1 minuto
+    const interval = setInterval(fetchUnreadNotifications, 60000);
+
+    return () => clearInterval(interval);
+  }, [token]);
 
   return (
     <aside
@@ -102,6 +127,8 @@ export default function TecnicoSidebar() {
         <ul className="px-4 space-y-2">
           {menuItems.map((item) => {
             const isActive = pathname === item.path;
+            const isNotificationsItem = item.path === '/tecnico/notificacoes';
+            
             return (
               <li key={item.path}>
                 <Link 
@@ -112,7 +139,14 @@ export default function TecnicoSidebar() {
                       : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
-                  <item.icon />
+                  <div className="relative">
+                    <item.icon />
+                    {isNotificationsItem && unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </div>
                   <span>{item.name}</span>
                 </Link>
               </li>

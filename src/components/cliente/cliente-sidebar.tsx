@@ -106,6 +106,20 @@ export default function ClienteSidebar() {
             </Link>
           </li>
 
+                    {/* Abrir Chamado */}
+          <li>
+            <Link
+              href="/cliente/abrir-chamado"
+              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${pathname === '/cliente/abrir-chamado'
+                  ? 'bg-blue-50 text-blue-600 font-medium'
+                  : 'text-slate-600 hover:bg-slate-100'
+                }`}
+            >
+              <AddIcon />
+              <span>Abrir Chamado</span>
+            </Link>
+          </li>
+
           {/* Notificações com contador */}
           <li>
             <Link
@@ -140,22 +154,6 @@ export default function ClienteSidebar() {
               <span>Meu Perfil</span>
             </Link>
           </li>
-
-
-          {/* Abrir Chamado */}
-          <li>
-            <Link
-              href="/cliente/abrir-chamado"
-              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${pathname === '/cliente/abrir-chamado'
-                  ? 'bg-blue-50 text-blue-600 font-medium'
-                  : 'text-slate-600 hover:bg-slate-100'
-                }`}
-            >
-              <AddIcon />
-              <span>Abrir Chamado</span>
-            </Link>
-          </li>
-
         </ul>
       </nav>
 
