@@ -25,19 +25,22 @@ interface DepartmentRequest {
 export default function GestorDepartamentosPage() {
   // Estado para a lista de departamentos
   const [departamentos, setDepartamentos] = useState<Department[]>([]);
-  
+
   // Estado para o formulário de novo departamento
   const [novoDepartamento, setNovoDepartamento] = useState<Department>({
     nome: '',
   });
-  
+
   // Estado para o departamento sendo editado
   const [editando, setEditando] = useState<Department | null>(null);
-  
+
   // Estados para feedback
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  //Estado para para rastrear ordem original dos departamentos
+  const [departamentoIdsOrdenados, setDepartamentoIdsOrdenados] = useState<number[]>([]);
 
   // Carregar departamentos ao montar o componente
   useEffect(() => {
@@ -48,7 +51,7 @@ export default function GestorDepartamentosPage() {
   const carregarDepartamentos = async () => {
     try {
       setIsLoading(true);
-      
+
       // Obter o token
       const token = localStorage.getItem('token');
       if (!token) {
@@ -56,12 +59,17 @@ export default function GestorDepartamentosPage() {
         setIsLoading(false);
         return;
       }
-      
+
       console.log('Buscando departamentos do backend...');
       const data = await api.departments.list(token);
       console.log('Departamentos recebidos:', data);
-      
+
       setDepartamentos(data);
+
+      // Armazenar a ordem dos IDs (apenas se ainda não estiver definido ou se houver novos itens)
+      if (departamentoIdsOrdenados.length === 0 || data.length !== departamentoIdsOrdenados.length) {
+        setDepartamentoIdsOrdenados(data.map((dep: Department) => dep.id || 0));
+      }
     } catch (error) {
       console.error('Erro ao carregar departamentos:', error);
       setError('Erro ao carregar departamentos. Tente novamente.');
@@ -77,10 +85,10 @@ export default function GestorDepartamentosPage() {
         setError('O nome do departamento é obrigatório');
         return;
       }
-      
+
       setIsLoading(true);
       setError(null);
-      
+
       // Obter o token
       const token = localStorage.getItem('token');
       if (!token) {
@@ -88,26 +96,28 @@ export default function GestorDepartamentosPage() {
         setIsLoading(false);
         return;
       }
-      
+
       console.log('Enviando novo departamento para o backend:', novoDepartamento);
-      const departmentRequest: DepartmentRequest = {
+      const departmentRequest = {
         nome: novoDepartamento.nome,
         ativo: true
       };
-      
+
       const created = await api.departments.create(departmentRequest, token);
       console.log('Departamento criado com sucesso:', created);
-      
+
       // Atualizar a lista de departamentos
       setDepartamentos(prev => [...prev, created]);
+
+      // Adicionar o novo ID à ordem
+      setDepartamentoIdsOrdenados(prev => [...prev, created.id]);
+
       setNovoDepartamento({ nome: '' });
       setSuccessMessage('Departamento criado com sucesso!');
-      
-      // Recarregar a lista para garantir dados atualizados
-      carregarDepartamentos();
-      
-      // Limpar mensagem de sucesso após 3 segundos
-      setTimeout(() => setSuccessMessage(null), 3000);
+
+      // Não recarregar completo para evitar reordenação
+      // carregarDepartamentos(); <- Remover ou comentar esta linha
+
     } catch (error) {
       console.error('Erro ao criar departamento:', error);
       setError('Erro ao criar departamento. Tente novamente.');
@@ -123,15 +133,15 @@ export default function GestorDepartamentosPage() {
         setError('O nome do departamento é obrigatório');
         return;
       }
-      
+
       if (!editando.id) {
         setError('ID do departamento não encontrado');
         return;
       }
-      
+
       setIsLoading(true);
       setError(null);
-      
+
       // Obter o token
       const token = localStorage.getItem('token');
       if (!token) {
@@ -139,27 +149,28 @@ export default function GestorDepartamentosPage() {
         setIsLoading(false);
         return;
       }
-      
+
       console.log('Atualizando departamento:', editando);
-      
-      const departmentRequest: DepartmentRequest = {
+
+      const departmentRequest = {
         nome: editando.nome,
         ativo: editando.ativo !== undefined ? editando.ativo : true
       };
-      
+
       const updated = await api.departments.update(editando.id, departmentRequest, token);
       console.log('Departamento atualizado com sucesso:', updated);
-      
-      // Atualizar a lista de departamentos
-      setDepartamentos(prev => prev.map(dep => dep.id === editando.id ? updated : dep));
+
+      // Atualizar a lista de departamentos mantendo a ordem
+      setDepartamentos(prev => prev.map(d =>
+        d.id === editando.id ? updated : d
+      ));
+
       setEditando(null);
       setSuccessMessage('Departamento atualizado com sucesso!');
-      
-      // Recarregar a lista para garantir dados atualizados
-      carregarDepartamentos();
-      
-      // Limpar mensagem de sucesso após 3 segundos
-      setTimeout(() => setSuccessMessage(null), 3000);
+
+      // Não recarregar a lista completa para manter a ordem
+      // carregarDepartamentos(); <- Remover ou comentar esta linha
+
     } catch (error) {
       console.error('Erro ao atualizar departamento:', error);
       setError('Erro ao atualizar departamento. Tente novamente.');
@@ -175,10 +186,10 @@ export default function GestorDepartamentosPage() {
         setError('ID do departamento não encontrado');
         return;
       }
-      
+
       setIsLoading(true);
       setError(null);
-      
+
       // Obter o token
       const token = localStorage.getItem('token');
       if (!token) {
@@ -186,33 +197,31 @@ export default function GestorDepartamentosPage() {
         setIsLoading(false);
         return;
       }
-      
+
       // Inverter o status atual
       const novoStatus = !departamento.ativo;
-      
+
       console.log(`${novoStatus ? 'Ativando' : 'Desativando'} departamento:`, departamento);
-      
+
       // Prepare update data
-      const departmentRequest: DepartmentRequest = {
+      const departmentRequest = {
         nome: departamento.nome,
         ativo: novoStatus
       };
-      
+
       await api.departments.update(departamento.id, departmentRequest, token);
       console.log(`Departamento ${novoStatus ? 'ativado' : 'desativado'} com sucesso`);
-      
-      // Atualizar a lista de departamentos
-      setDepartamentos(prev => prev.map(dep => 
+
+      // Atualizar apenas o item específico na lista atual, sem reordenar
+      setDepartamentos(prev => prev.map(dep =>
         dep.id === departamento.id ? { ...dep, ativo: novoStatus } : dep
       ));
-      
+
       setSuccessMessage(`Departamento ${novoStatus ? 'ativado' : 'desativado'} com sucesso!`);
-      
-      // Recarregar a lista para garantir dados atualizados
-      carregarDepartamentos();
-      
-      // Limpar mensagem de sucesso após 3 segundos
-      setTimeout(() => setSuccessMessage(null), 3000);
+
+      // Não recarregar a lista completa para evitar reordenação
+      // carregarDepartamentos(); <- Remover ou comentar esta linha
+
     } catch (error) {
       console.error('Erro ao atualizar status do departamento:', error);
       setError('Erro ao atualizar status do departamento. Tente novamente.');
@@ -234,28 +243,28 @@ export default function GestorDepartamentosPage() {
         <h2 className="text-2xl font-bold text-slate-900">Gerenciamento de Departamentos</h2>
         <p className="text-slate-600 mt-1">Crie e gerencie departamentos do sistema.</p>
       </div>
-      
+
       {/* Mensagens de feedback */}
       {error && (
-        <Alert 
-          variant="destructive" 
+        <Alert
+          variant="destructive"
           title="Erro"
           onClose={() => setError(null)}
         >
           {error}
         </Alert>
       )}
-      
+
       {successMessage && (
-        <Alert 
-          variant="success" 
+        <Alert
+          variant="success"
           title="Sucesso"
           onClose={() => setSuccessMessage(null)}
         >
           {successMessage}
         </Alert>
       )}
-      
+
       {/* Formulário para adicionar/editar departamento */}
       <Card>
         <CardHeader>
@@ -283,7 +292,7 @@ export default function GestorDepartamentosPage() {
               autoFocus
             />
           </FormField>
-          
+
           {editando && (
             <div className="flex items-center mt-4">
               <label className="flex items-center cursor-pointer">
@@ -304,16 +313,16 @@ export default function GestorDepartamentosPage() {
         <CardFooter className="flex justify-end space-x-2">
           {editando ? (
             <>
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={cancelarEdicao}
                 disabled={isLoading}
               >
                 Cancelar
               </Button>
-              <Button 
-                type="button" 
+              <Button
+                type="button"
                 onClick={atualizarDepartamento}
                 disabled={isLoading}
               >
@@ -321,8 +330,8 @@ export default function GestorDepartamentosPage() {
               </Button>
             </>
           ) : (
-            <Button 
-              type="button" 
+            <Button
+              type="button"
               onClick={adicionarDepartamento}
               disabled={isLoading}
             >
@@ -331,7 +340,7 @@ export default function GestorDepartamentosPage() {
           )}
         </CardFooter>
       </Card>
-      
+
       {/* Lista de departamentos */}
       <Card>
         <CardHeader>
@@ -349,39 +358,47 @@ export default function GestorDepartamentosPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {departamentos.map((departamento) => (
-                <div 
-                  key={departamento.id}
-                  className="p-4 border rounded-md flex justify-between items-center"
-                >
-                  <div>
-                    <h3 className="font-medium">{departamento.nome}</h3>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      departamento.ativo 
-                        ? 'bg-green-100 text-green-800' 
+              {/* Use a ordem dos IDs para mapear os departamentos */}
+              {departamentoIdsOrdenados.map(id => {
+                // Encontrar o departamento correspondente ao ID
+                const departamento = departamentos.find(dep => dep.id === id);
+
+                // Se o departamento não existir (caso raro), pular
+                if (!departamento) return null;
+
+                return (
+                  <div
+                    key={departamento.id}
+                    className="p-4 border rounded-md flex justify-between items-center"
+                  >
+                    <div>
+                      <h3 className="font-medium">{departamento.nome}</h3>
+                      <span className={`text-xs px-2 py-1 rounded-full ${departamento.ativo
+                        ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
-                    }`}>
-                      {departamento.ativo ? 'Ativo' : 'Inativo'}
-                    </span>
+                        }`}>
+                        {departamento.ativo ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditando(departamento)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={departamento.ativo ? "destructive" : "default"}
+                        onClick={() => alternarStatus(departamento)}
+                      >
+                        {departamento.ativo ? 'Desativar' : 'Ativar'}
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => setEditando(departamento)}
-                    >
-                      Editar
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant={departamento.ativo ? "destructive" : "default"}
-                      onClick={() => alternarStatus(departamento)}
-                    >
-                      {departamento.ativo ? 'Desativar' : 'Ativar'}
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

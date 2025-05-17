@@ -1,5 +1,4 @@
-// Modificação para src/app/cliente/perfil/page.tsx
-// Parte de preferências de notificação com salvamento automático
+// src/app/tecnico/perfil/page.tsx
 
 'use client';
 
@@ -11,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Alert } from '@/components/ui/alert';
 import { api } from '@/lib/api';
 
-export default function PerfilPage() {
+export default function TecnicoPerfilPage() {
   const { user, token } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -75,6 +74,9 @@ export default function PerfilPage() {
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
+    
+    // Limpar mensagem de erro quando o usuário começa a editar o formulário novamente
+    if (errorMessage) setErrorMessage('');
   };
 
   const validateForm = () => {
@@ -190,7 +192,7 @@ export default function PerfilPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900">Meu Perfil</h2>
-        <p className="text-slate-600 mt-1">Gerencie suas informações pessoais e preferências.</p>
+        <p className="text-slate-600 mt-1">Gerencie suas informações pessoais e preferências de notificação.</p>
       </div>
       
       {/* Cartão de informações do usuário */}
@@ -223,18 +225,17 @@ export default function PerfilPage() {
             
             <div className="flex items-center gap-4 mb-4">
               <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold">
-                {formData.nome?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                {formData.nome?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'T'}
               </div>
               <div>
                 <h3 className="font-semibold text-lg">{formData.nome || user?.email?.split('@')[0]}</h3>
                 <p className="text-slate-500">{user?.email}</p>
                 <p className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full inline-block mt-1">
-                  {user?.tipo || 'Cliente'}
+                  {user?.tipo || 'Técnico'}
                 </p>
               </div>
             </div>
             
-            {/* ... restante dos campos de informações pessoais ... */}
             <FormField
               id="nome"
               label="Nome completo"
@@ -364,7 +365,7 @@ export default function PerfilPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-medium">Atualizações de chamados</h4>
-                <p className="text-sm text-slate-500">Receba notificações quando seus chamados forem atualizados</p>
+                <p className="text-sm text-slate-500">Receba notificações quando houver atualizações nos chamados que você atende</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
@@ -380,8 +381,8 @@ export default function PerfilPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-medium">Fechamento de chamados</h4>
-                <p className="text-sm text-slate-500">Receba notificações quando seus chamados forem concluídos</p>
+                <h4 className="font-medium">Notificações de novos chamados</h4>
+                <p className="text-sm text-slate-500">Receba alertas quando novos chamados com alta prioridade forem abertos</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
@@ -415,8 +416,8 @@ export default function PerfilPage() {
         </CardContent>
       </Card>
       
-      <Alert variant="info" title="Segurança da Conta">
-        Recomendamos alterar sua senha regularmente para manter sua conta segura. Nunca compartilhe suas credenciais com terceiros.
+      <Alert variant="info" title="Dicas para técnicos">
+        Mantenha os clientes informados sobre o progresso dos chamados. Documentar suas ações nos comentários ajuda a manter a transparência e facilita o acompanhamento posterior do histórico de atendimento.
       </Alert>
     </div>
   );
