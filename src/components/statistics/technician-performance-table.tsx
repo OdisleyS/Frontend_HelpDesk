@@ -7,36 +7,20 @@ interface TechnicianPerformanceTableProps {
     name: string;
     assigned: number;
     resolved: number;
+    resolutionRate: string;
     avgResolutionTime: number;
+    classification: string;
   }[];
 }
 
 export default function TechnicianPerformanceTable({ data }: TechnicianPerformanceTableProps) {
   // Ordenar os técnicos pela taxa de resolução (decrescente)
   const sortedData = [...data].sort((a, b) => {
-    const rateA = a.resolved / a.assigned;
-    const rateB = b.resolved / b.assigned;
+    // Converter taxas de percentual (ex: "88%") para número
+    const rateA = parseInt(a.resolutionRate.replace('%', ''), 10) || 0;
+    const rateB = parseInt(b.resolutionRate.replace('%', ''), 10) || 0;
     return rateB - rateA;
   });
-  
-  // Calcular métricas adicionais
-  const enhancedData = sortedData.map(tech => {
-    const resolutionRate = tech.assigned > 0 ? (tech.resolved / tech.assigned) * 100 : 0;
-    return {
-      ...tech,
-      resolutionRate: resolutionRate.toFixed(0) + '%',
-      efficiency: getEfficiencyRating(resolutionRate, tech.avgResolutionTime)
-    };
-  });
-  
-  // Função para determinar classificação de eficiência
-  function getEfficiencyRating(resolutionRate: number, avgTime: number): string {
-    if (resolutionRate >= 80 && avgTime < 12) return 'Excelente';
-    if (resolutionRate >= 70 && avgTime < 18) return 'Muito Bom';
-    if (resolutionRate >= 60 && avgTime < 24) return 'Bom';
-    if (resolutionRate >= 50) return 'Regular';
-    return 'Precisa Melhorar';
-  }
   
   // Função para determinar classe de cor com base na eficiência
   function getEfficiencyClass(efficiency: string): string {
@@ -63,7 +47,7 @@ export default function TechnicianPerformanceTable({ data }: TechnicianPerforman
           </tr>
         </thead>
         <tbody>
-          {enhancedData.map((tech, index) => (
+          {sortedData.map((tech, index) => (
             <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
               <td className="px-4 py-3 border-b font-medium">{tech.name}</td>
               <td className="px-4 py-3 border-b text-center">{tech.assigned}</td>
@@ -71,8 +55,8 @@ export default function TechnicianPerformanceTable({ data }: TechnicianPerforman
               <td className="px-4 py-3 border-b text-center">{tech.resolutionRate}</td>
               <td className="px-4 py-3 border-b text-center">{tech.avgResolutionTime}</td>
               <td className="px-4 py-3 border-b text-center">
-                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getEfficiencyClass(tech.efficiency)}`}>
-                  {tech.efficiency}
+                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getEfficiencyClass(tech.classification)}`}>
+                  {tech.classification}
                 </span>
               </td>
             </tr>

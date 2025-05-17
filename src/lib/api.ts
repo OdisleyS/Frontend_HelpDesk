@@ -20,6 +20,29 @@ export interface VerifyRequest {
   codigo: string;
 }
 
+// Tipos para as estatísticas
+export interface EstatisticaItemDTO {
+  nome: string;
+  valor: number;
+}
+
+export interface DesempenhoTecnicoDTO {
+  nome: string;
+  atribuídos: number;
+  resolvidos: number;
+  taxaResolucao: string;
+  mediaHoras: number;
+  classificacao: string;
+}
+
+interface User {
+  id: number;
+  nome: string;
+  email: string;
+  tipo: string;
+  ativo: boolean;
+}
+
 // Funções de autenticação
 const auth = {
   login: async (data: LoginRequest): Promise<{ token: string }> => {
@@ -403,6 +426,142 @@ const tickets = {
       throw error;
     }
   },
+
+  // Get SLA compliance percentage
+  getSlaConformidade: async (token: string): Promise<number> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/sla/conformidade`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao obter conformidade de SLA');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao obter conformidade de SLA:', error);
+      throw error;
+    }
+  },
+
+  // Get average resolution time per category
+  getTempoMedioPorCategoria: async (token: string): Promise<EstatisticaItemDTO[]> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/tempo-medio/categoria`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao obter tempo médio por categoria');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao obter tempo médio por categoria:', error);
+      throw error;
+    }
+  },
+
+  // Get technician performance metrics
+  getDesempenhoTecnicos: async (token: string): Promise<DesempenhoTecnicoDTO[]> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/estatisticas/desempenho-tecnicos`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao obter desempenho dos técnicos');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao obter desempenho dos técnicos:', error);
+      throw error;
+    }
+  }
+
+};
+
+// Para estatísticas
+const statistics = {
+  getTicketCounts: async (token: string): Promise<number> => {
+    try {
+      // Busca todos os chamados independente do status
+      const allStatuses = ['ABERTO', 'EM_ANALISE', 'EM_ATENDIMENTO', 
+                           'AGUARDANDO_CLIENTE', 'RESOLVIDO', 'FECHADO'];
+      
+      // Para cada status, buscar chamados e combinar
+      const ticketPromises = allStatuses.map(status => 
+        tickets.listByStatus(status, token)
+      );
+      
+      const results = await Promise.all(ticketPromises);
+      const totalTickets = results.reduce((total, tickets) => total + tickets.length, 0);
+      
+      return totalTickets;
+    } catch (error) {
+      console.error('Erro ao buscar contagem de chamados:', error);
+      throw error;
+    }
+  },
+  
+  getActiveClients: async (token: string): Promise<number> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/admin/users`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao listar usuários');
+      }
+
+      const data = await response.json();
+      
+      // Verificamos se a resposta é um array ou um objeto paginado
+      if (Array.isArray(data)) {
+        return data.filter((user: User) => user.tipo === 'CLIENTE' && user.ativo === true).length;
+      } else if (data.content && Array.isArray(data.content)) {
+        // Se for um objeto paginado
+        return data.content.filter((user: User) => user.tipo === 'CLIENTE' && user.ativo === true).length;
+      } else {
+        console.warn('Formato de resposta inesperado:', data);
+        return 0;
+      }
+    } catch (error) {
+      console.error('Erro ao buscar clientes ativos:', error);
+      throw error;
+    }
+  },
+  
+  getSlaCompliance: async (token: string): Promise<number> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/sla/conformidade`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao obter conformidade SLA');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao buscar conformidade SLA:', error);
+      throw error;
+    }
+  }
 };
 
 // Funções de usuários
@@ -625,7 +784,8 @@ export const api = {
   tickets,
   users,
   sla,
-  notifications, // Adicione esta linha
+  notifications,
+  statistics,
 };
 
 

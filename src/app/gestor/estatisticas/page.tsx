@@ -3,10 +3,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/auth-context';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
+import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api';
 import StatsOverview from '@/components/statistics/stats-overview';
 import TicketsByStatusChart from '@/components/statistics/tickets-by-status-chart';
@@ -43,8 +44,8 @@ interface StatsData {
     classification: string;
   }[];
   resolutionTimes: {
-    category: string;
-    avgTime: number;
+    nome: string;
+    valor: number;
   }[];
   slaCompliance: {
     withinSLA: number;
@@ -78,12 +79,6 @@ export default function GestorEstatisticasPage() {
         // Buscar todas as categorias
         const categories = await api.categories.list(token);
         
-        // Buscar todos os usuários técnicos
-        const users = await api.users.list(token);
-        const technicians = users.content 
-          ? users.content.filter((user: any) => user.tipo === 'TECNICO')
-          : users.filter((user: any) => user.tipo === 'TECNICO');
-        
         // Buscar chamados por status
         const openTickets = await api.tickets.listByStatus('ABERTO', token);
         const inAnalysisTickets = await api.tickets.listByStatus('EM_ANALISE', token);
@@ -101,7 +96,7 @@ export default function GestorEstatisticasPage() {
           ...resolvedTickets,
           ...closedTickets
         ];
-        
+
         // Contar por prioridade
         const byPriority = {
           BAIXA: 0,
@@ -115,61 +110,7 @@ export default function GestorEstatisticasPage() {
           byCategory[cat.nome] = 0;
         });
         
-        // Preparar dados de técnicos
-        const technicianStats: { [key: string]: any } = {};
-        technicians.forEach((tech: any) => {
-          technicianStats[tech.id] = {
-            name: tech.nome || tech.email,
-            assigned: 0,
-            resolved: 0,
-            resolutionTimeTotal: 0,
-            resolutionCount: 0
-          };
-        });
-        
-        // Buscar chamados específicos de cada técnico
-        await Promise.all(
-          technicians.map(async (tech: any) => {
-            try {
-              // Se o técnico atual for o usuário autenticado, podemos usar getMyTickets
-              // Caso contrário, precisamos usar o endpoint adequado ou filtrar todos os tickets
-              const myTickets = await api.tickets.getMyTickets(token);
-              
-              // Filtrar apenas os tickets que pertencem a este técnico
-              const technicianTickets = myTickets.filter((ticket: any) => 
-                ticket.tecnico && ticket.tecnico.id === tech.id
-              );
-              
-              // Atualizar estatísticas deste técnico
-              if (technicianStats[tech.id]) {
-                technicianStats[tech.id].assigned = technicianTickets.length;
-                
-                technicianTickets.forEach((ticket: any) => {
-                  if (ticket.status === 'RESOLVIDO' || ticket.status === 'FECHADO') {
-                    technicianStats[tech.id].resolved++;
-                    
-                    if (ticket.abertoEm && ticket.fechadoEm) {
-                      const openTime = new Date(ticket.abertoEm).getTime();
-                      const closeTime = new Date(ticket.fechadoEm).getTime();
-                      const resolutionTime = (closeTime - openTime) / (1000 * 60 * 60); // Em horas
-                      
-                      technicianStats[tech.id].resolutionTimeTotal += resolutionTime;
-                      technicianStats[tech.id].resolutionCount++;
-                    }
-                  }
-                });
-              }
-            } catch (error) {
-              console.error(`Erro ao buscar chamados do técnico ${tech.nome || tech.email}:`, error);
-            }
-          })
-        );
-        
-        // Contadores para SLA
-        let ticketsWithSLA = 0;
-        let ticketsWithinSLA = 0;
-        
-        // Processar todos os chamados para obter estatísticas completas
+        // Processar todos os chamados para estatísticas
         allTickets.forEach((ticket: any) => {
           // Contar por prioridade
           if (ticket.prioridade && byPriority.hasOwnProperty(ticket.prioridade)) {
@@ -180,118 +121,29 @@ export default function GestorEstatisticasPage() {
           if (ticket.categoria && byCategory.hasOwnProperty(ticket.categoria)) {
             byCategory[ticket.categoria]++;
           }
-          
-          // Estatísticas por técnico (complementar à busca específica)
-          if (ticket.tecnico && ticket.tecnico.id && technicianStats[ticket.tecnico.id]) {
-            // Verificar se o ticket já foi contabilizado
-            // Verificar se esse ticket já não foi contado anteriormente
-            // Incrementar contagem de chamados atribuídos
-            if (technicianStats[ticket.tecnico.id].assigned === 0) {
-              technicianStats[ticket.tecnico.id].assigned++;
-            }
-            
-            // Verificar chamados resolvidos
-            if ((ticket.status === 'RESOLVIDO' || ticket.status === 'FECHADO') && 
-                technicianStats[ticket.tecnico.id].resolved === 0) {
-              technicianStats[ticket.tecnico.id].resolved++;
-              
-              // Calcular tempo de resolução se tiver timestamps
-              if (ticket.abertoEm && ticket.fechadoEm && 
-                  technicianStats[ticket.tecnico.id].resolutionCount === 0) {
-                const openTime = new Date(ticket.abertoEm).getTime();
-                const closeTime = new Date(ticket.fechadoEm).getTime();
-                const resolutionTime = (closeTime - openTime) / (1000 * 60 * 60); // Em horas
-                
-                technicianStats[ticket.tecnico.id].resolutionTimeTotal += resolutionTime;
-                technicianStats[ticket.tecnico.id].resolutionCount++;
-              }
-            }
-          }
-          
-          // Análise de SLA
-          if (ticket.prazoSla) {
-            ticketsWithSLA++;
-            
-            const slaDeadline = new Date(ticket.prazoSla).getTime();
-            const resolvedDate = ticket.fechadoEm 
-              ? new Date(ticket.fechadoEm).getTime() 
-              : Date.now();
-            
-            if (resolvedDate <= slaDeadline) {
-              ticketsWithinSLA++;
-            }
-          }
         });
+
+        // NOVAS CHAMADAS À API PARA OS DADOS ANTES AUSENTES
         
-        // Calcular média de tempo de resolução por técnico e adicionar classificações
-        const technicianData = Object.values(technicianStats).map((tech: any) => {
-          // Calcular média de resolução
-          const avgResolutionTime = tech.resolutionCount > 0 
-            ? Math.round(tech.resolutionTimeTotal / tech.resolutionCount * 10) / 10 
-            : 0;
-            
-          // Calcular taxa de resolução
-          const resolutionRate = tech.assigned > 0 
-            ? Math.round((tech.resolved / tech.assigned) * 100) 
-            : 0;
-            
-          // Determinar classificação
-          let classification = 'Precisa Melhorar';
-          
-          if (tech.assigned === 0) {
-            classification = 'Sem Avaliação';
-          } else if (resolutionRate >= 90 && avgResolutionTime <= 24) {
-            classification = 'Excelente';
-          } else if (resolutionRate >= 75 && avgResolutionTime <= 48) {
-            classification = 'Bom';
-          } else if (resolutionRate >= 50) {
-            classification = 'Regular';
-          }
-          
-          return {
-            name: tech.name,
-            assigned: tech.assigned,
-            resolved: tech.resolved,
-            resolutionRate: `${resolutionRate}%`,
-            avgResolutionTime,
-            classification
-          };
-        });
+        // 1. Obter conformidade de SLA
+        const slaCompliancePercentage = await api.tickets.getSlaConformidade(token);
+        const withinSLA = slaCompliancePercentage; // A porcentagem que está conforme
+        const outsideSLA = 100 - withinSLA; // A porcentagem que está fora
+
+        // 2. Obter tempo médio por categoria
+        const resolutionTimes = await api.tickets.getTempoMedioPorCategoria(token);
         
-        // Calcular tempo médio de resolução por categoria
-        const resolutionTimesByCategory: { [key: string]: { total: number, count: number } } = {};
-        
-        categories.forEach((cat: any) => {
-          resolutionTimesByCategory[cat.nome] = { total: 0, count: 0 };
-        });
-        
-        // Preencher tempos de resolução por categoria
-        allTickets.forEach((ticket: any) => {
-          if (ticket.categoria && 
-              resolutionTimesByCategory[ticket.categoria] && 
-              ticket.abertoEm && 
-              ticket.fechadoEm && 
-              (ticket.status === 'RESOLVIDO' || ticket.status === 'FECHADO')) {
-            
-            const openTime = new Date(ticket.abertoEm).getTime();
-            const closeTime = new Date(ticket.fechadoEm).getTime();
-            const resolutionTime = (closeTime - openTime) / (1000 * 60 * 60); // Em horas
-            
-            resolutionTimesByCategory[ticket.categoria].total += resolutionTime;
-            resolutionTimesByCategory[ticket.categoria].count++;
-          }
-        });
-        
-        const resolutionTimes = Object.entries(resolutionTimesByCategory).map(([category, data]) => ({
-          category,
-          avgTime: data.count > 0 ? Math.round(data.total / data.count * 10) / 10 : 0
+        // 3. Obter desempenho dos técnicos
+        const technicianData = await api.tickets.getDesempenhoTecnicos(token);
+        const byTechnician = technicianData.map(tech => ({
+          name: tech.nome,
+          assigned: tech.atribuídos,
+          resolved: tech.resolvidos,
+          resolutionRate: tech.taxaResolucao,
+          avgResolutionTime: tech.mediaHoras,
+          classification: tech.classificacao
         }));
-        
-        // Calcular percentual de conformidade com SLA
-        const withinSLA = ticketsWithSLA > 0 
-          ? Math.round((ticketsWithinSLA / ticketsWithSLA) * 100) 
-          : 100;
-        
+
         // Montar objeto de estatísticas
         const stats: StatsData = {
           byStatus: {
@@ -304,11 +156,11 @@ export default function GestorEstatisticasPage() {
           },
           byPriority,
           byCategory,
-          byTechnician: technicianData,
+          byTechnician,
           resolutionTimes,
           slaCompliance: {
             withinSLA,
-            outsideSLA: 100 - withinSLA
+            outsideSLA
           },
           totals: {
             open: openTickets.length,
