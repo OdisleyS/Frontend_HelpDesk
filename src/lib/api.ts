@@ -354,6 +354,24 @@ const tickets = {
     }
   },
 
+  //Para permitir cliente editar chamado
+  updateTicket: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao atualizar chamado');
+    }
+
+    return response.json();
+  },
+
   resolveTicket: async (id: number, token: string) => {
     try {
       const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/resolve`, {
