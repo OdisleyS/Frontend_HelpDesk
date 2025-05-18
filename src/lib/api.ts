@@ -1,7 +1,38 @@
 // src/lib/api.ts
 
-// Vamos ampliar a API para incluir as funções necessárias para técnicos
+// Cache de estatísticas para reduzir chamadas ao servidor
+interface StatsCache {
+  dashboardStats: any | null;
+  resolutionTime: any[] | null;
+  technicianPerformance: any[] | null;
+  categoryDistribution: any[] | null;
+  lastUpdated: number | null;
+  ttl: number; // Time to live em millisegundos
+}
 
+const statsCache: StatsCache = {
+  dashboardStats: null,
+  resolutionTime: null,
+  technicianPerformance: null,
+  categoryDistribution: null,
+  lastUpdated: null,
+  ttl: 2 * 60 * 1000 // 2 minutos em millisegundos
+};
+
+// Função para verificar se o cache é válido
+const isCacheValid = (): boolean => {
+  if (!statsCache.lastUpdated) return false;
+  
+  const now = Date.now();
+  return (now - statsCache.lastUpdated) < statsCache.ttl;
+};
+
+// Função para invalidar o cache (útil quando o usuário faz alguma ação que altera os dados)
+const invalidateCache = (): void => {
+  statsCache.lastUpdated = null;
+};
+
+// Vamos ampliar a API para incluir as funções necessárias para técnicos
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 // Tipos de requisição para autenticação
@@ -18,6 +49,29 @@ export interface RegisterRequest {
 export interface VerifyRequest {
   email: string;
   codigo: string;
+}
+
+// Tipos para as estatísticas
+export interface EstatisticaItemDTO {
+  nome: string;
+  valor: number;
+}
+
+export interface DesempenhoTecnicoDTO {
+  nome: string;
+  atribuídos: number;
+  resolvidos: number;
+  taxaResolucao: string;
+  mediaHoras: number;
+  classificacao: string;
+}
+
+interface User {
+  id: number;
+  nome: string;
+  email: string;
+  tipo: string;
+  ativo: boolean;
 }
 
 // Funções de autenticação
@@ -114,6 +168,9 @@ const categories = {
       throw new Error('Falha ao criar categoria');
     }
 
+    // Invalidar cache de estatísticas após criar categoria
+    invalidateCache();
+    
     return response.json();
   },
 
@@ -131,6 +188,9 @@ const categories = {
       throw new Error('Falha ao atualizar categoria');
     }
 
+    // Invalidar cache de estatísticas após atualizar categoria
+    invalidateCache();
+    
     return response.json();
   },
 };
@@ -261,6 +321,9 @@ const tickets = {
       throw new Error('Falha ao criar chamado');
     }
 
+    // Invalidar cache de estatísticas após criar chamado
+    invalidateCache();
+    
     return response.json();
   },
 
@@ -278,6 +341,9 @@ const tickets = {
       if (!response.ok) {
         throw new Error('Falha ao atualizar status do chamado');
       }
+      
+      // Invalidar cache de estatísticas após atualizar status
+      invalidateCache();
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
       throw error;
@@ -303,10 +369,56 @@ const tickets = {
 
         throw new Error(message);
       }
+      
+      // Invalidar cache de estatísticas após atribuir técnico
+      invalidateCache();
     } catch (error) {
       console.error('Erro ao assumir chamado:', error);
       throw error;
     }
+  },
+
+  // Nova função para atualizar prioridade
+  updatePriority: async (id: number, priority: string, comment: string, token: string): Promise<void> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/prioridade?novaPrioridade=${priority}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ comment })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Falha ao atualizar prioridade do chamado');
+      }
+      
+      // Invalidar cache de estatísticas após atualizar prioridade
+      invalidateCache();
+    } catch (error) {
+      console.error('Erro ao atualizar prioridade:', error);
+      throw error;
+    }
+  },
+
+  //Para permitir cliente editar chamado
+  updateTicket: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao atualizar chamado');
+    }
+
+    return response.json();
   },
 
   resolveTicket: async (id: number, token: string) => {
@@ -324,6 +436,9 @@ const tickets = {
         throw new Error(errorData.message || `Falha ao resolver chamado #${id}`);
       }
 
+      // Invalidar cache de estatísticas após resolver chamado
+      invalidateCache();
+      
       // Não tentar fazer .json() se não houver corpo na resposta
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -351,6 +466,9 @@ const tickets = {
         throw new Error(errorData.message || `Falha ao cancelar chamado #${id}`);
       }
 
+      // Invalidar cache de estatísticas após cancelar chamado
+      invalidateCache();
+      
       // Não tentar fazer .json() se não houver corpo na resposta
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -382,7 +500,6 @@ const tickets = {
     }
   },
 
-  // Corrija esta função no arquivo src/lib/api.ts
   addComment: async (id: number, comment: string, token: string): Promise<void> => {
     try {
       const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}/comment`, {
@@ -403,6 +520,270 @@ const tickets = {
       throw error;
     }
   },
+
+  // Get SLA compliance percentage
+  getSlaConformidade: async (token: string): Promise<number> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/sla/conformidade`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao obter conformidade de SLA');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao obter conformidade de SLA:', error);
+      throw error;
+    }
+  },
+
+  // Get average resolution time per category
+  getTempoMedioPorCategoria: async (token: string): Promise<EstatisticaItemDTO[]> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/tempo-medio/categoria`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao obter tempo médio por categoria');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao obter tempo médio por categoria:', error);
+      throw error;
+    }
+  },
+
+  // Get technician performance metrics
+  getDesempenhoTecnicos: async (token: string): Promise<DesempenhoTecnicoDTO[]> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/tickets/estatisticas/desempenho-tecnicos`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao obter desempenho dos técnicos');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao obter desempenho dos técnicos:', error);
+      throw error;
+    }
+  }
+};
+
+// Para estatísticas
+const statistics = {
+  // Obter dados completos do dashboard com cache
+  getDashboardStats: async (token: string) => {
+    try {
+      // Verificar se o cache é válido
+      if (isCacheValid() && statsCache.dashboardStats) {
+        console.log('Usando cache para dashboard stats');
+        return statsCache.dashboardStats;
+      }
+      
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/dashboard`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar estatísticas do dashboard');
+      }
+
+      const data = await response.json();
+      
+      // Atualizar o cache
+      statsCache.dashboardStats = data;
+      statsCache.lastUpdated = Date.now();
+      
+      return data;
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas do dashboard:', error);
+      throw error;
+    }
+  },
+
+  // Obter distribuição por categoria com cache
+  getCategoryDistribution: async (token: string) => {
+    try {
+      // Verificar se o cache é válido
+      if (isCacheValid() && statsCache.categoryDistribution) {
+        console.log('Usando cache para category distribution');
+        return statsCache.categoryDistribution;
+      }
+      
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/category-distribution`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar distribuição de categorias');
+      }
+
+      const data = await response.json();
+      
+      // Atualizar o cache
+      statsCache.categoryDistribution = data;
+      if (!statsCache.lastUpdated) statsCache.lastUpdated = Date.now();
+      
+      return data;
+    } catch (error) {
+      console.error('Erro ao buscar distribuição de categorias:', error);
+      throw error;
+    }
+  },
+
+  // Obter contagem de tickets
+  getTicketCounts: async (token: string) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/ticket-counts`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar contagem de tickets');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Erro ao buscar contagem de tickets:', error);
+      throw error;
+    }
+  },
+
+  // Obter clientes ativos
+  getActiveClients: async (token: string) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/active-clients`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar clientes ativos');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Erro ao buscar clientes ativos:', error);
+      throw error;
+    }
+  },
+
+  // Obter conformidade com SLA
+  getSlaCompliance: async (token: string) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/sla-compliance`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar conformidade com SLA');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Erro ao buscar conformidade com SLA:', error);
+      throw error;
+    }
+  },
+
+  // Obter tempo médio de resolução por categoria com cache
+  getResolutionTime: async (token: string) => {
+    try {
+      // Verificar se o cache é válido
+      if (isCacheValid() && statsCache.resolutionTime) {
+        console.log('Usando cache para resolution time');
+        return statsCache.resolutionTime;
+      }
+      
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/resolution-time`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar tempo médio de resolução');
+      }
+
+      const data = await response.json();
+      
+      // Atualizar o cache
+      statsCache.resolutionTime = data;
+      if (!statsCache.lastUpdated) statsCache.lastUpdated = Date.now();
+      
+      return data;
+    } catch (error) {
+      console.error('Erro ao buscar tempo médio de resolução:', error);
+      throw error;
+    }
+  },
+
+  // Obter desempenho dos técnicos com cache
+  getTechnicianPerformance: async (token: string) => {
+    try {
+      // Verificar se o cache é válido
+      if (isCacheValid() && statsCache.technicianPerformance) {
+        console.log('Usando cache para technician performance');
+        return statsCache.technicianPerformance;
+      }
+      
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/technician-performance`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar desempenho dos técnicos');
+      }
+
+      const data = await response.json();
+      
+      // Atualizar o cache
+      statsCache.technicianPerformance = data;
+      if (!statsCache.lastUpdated) statsCache.lastUpdated = Date.now();
+      
+      return data;
+    } catch (error) {
+      console.error('Erro ao buscar desempenho dos técnicos:', error);
+      throw error;
+    }
+  },
+  
+  // Método para forçar a invalidação do cache
+  invalidateStatsCache: () => {
+    invalidateCache();
+    console.log('Cache de estatísticas invalidado');
+  }
 };
 
 // Funções de usuários
@@ -436,23 +817,158 @@ const users = {
       throw new Error('Falha ao criar usuário');
     }
 
+    // Invalidar cache após criar usuário
+    invalidateCache();
+    
     return response.json();
   },
 
-  updateStatus: async (id: number, ativo: boolean, token: string) => {
-    const response = await fetch(`${BASE_URL}/api/v1/admin/users/${id}/status?ativo=${ativo}`, {
-      method: 'PUT',
+  getProfile: async (token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/usuarios/perfil`, {
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Falha ao atualizar status do usuário #${id}`);
+      throw new Error('Falha ao buscar perfil do usuário');
     }
 
+    // Invalidar cache após atualizar usuário
+    invalidateCache();
+    
     return response.json();
   },
+
+  updateProfile: async (data: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/usuarios/perfil`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Falha ao atualizar perfil');
+    }
+
+    return response.text();
+  },
+
+  updateName: async (nome: string, token: string): Promise<any> => {
+    try {
+      // URL atualizada para o novo endpoint
+      const response = await fetch(`${BASE_URL}/api/v1/usuarios/nome`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ nome })
+      });
+
+      if (!response.ok) {
+        // Log adicional para debug
+        console.error(`Erro ao atualizar nome. Status: ${response.status}`);
+        try {
+          const errorText = await response.text();
+          console.error('Resposta do erro:', errorText);
+        } catch (e) {
+          console.error('Não foi possível ler o corpo da resposta de erro');
+        }
+
+        const errorData = await response.json().catch(() => ({}));
+        throw {
+          message: errorData.message || `Erro ao atualizar nome. Status: ${response.status}`,
+          status: response.status
+        };
+      }
+
+      return {};
+    } catch (error) {
+      console.error('Erro ao atualizar nome:', error);
+      throw error;
+    }
+  },
+
+  // Função para obter o nome do usuário atual
+  getName: async (token: string): Promise<string> => {
+    try {
+      // URL atualizada para o novo endpoint
+      const response = await fetch(`${BASE_URL}/api/v1/usuarios/nome`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        // Log adicional para debug
+        console.error(`Erro ao obter nome. Status: ${response.status}`);
+        try {
+          const errorText = await response.text();
+          console.error('Resposta do erro:', errorText);
+        } catch (e) {
+          console.error('Não foi possível ler o corpo da resposta de erro');
+        }
+
+        const errorData = await response.json().catch(() => ({}));
+        throw {
+          message: errorData.message || `Erro ao obter nome. Status: ${response.status}`,
+          status: response.status
+        };
+      }
+
+      const data = await response.json();
+      return data.nome;
+    } catch (error) {
+      console.error('Erro ao obter nome:', error);
+      throw error;
+    }
+  },
+
+  // Função para atualizar a senha do usuário
+  updatePassword: async (senhaAtual: string, novaSenha: string, token: string): Promise<any> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/usuarios/senha`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          senhaAtual,
+          novaSenha
+        })
+      });
+
+      if (!response.ok) {
+        // Log adicional para debug
+        console.error(`Erro ao atualizar senha. Status: ${response.status}`);
+        try {
+          const errorText = await response.text();
+          console.error('Resposta do erro:', errorText);
+        } catch (e) {
+          console.error('Não foi possível ler o corpo da resposta de erro');
+        }
+
+        const errorData = await response.json().catch(() => ({}));
+        throw {
+          message: errorData.message || `Erro ao atualizar senha. Status: ${response.status}`,
+          status: response.status
+        };
+      }
+
+      return {};
+    } catch (error) {
+      console.error('Erro ao atualizar senha:', error);
+      throw error;
+    }
+  }
 };
 
 // Funções de SLA
@@ -477,6 +993,9 @@ const sla = {
       throw new Error(`Erro ao salvar SLA (cat: ${categoriaId}, prioridade: ${prioridade})`);
     }
 
+    // Invalidar cache após criar SLA
+    invalidateCache();
+    
     return await response.json();
   },
 
@@ -517,107 +1036,96 @@ const sla = {
       throw new Error('Erro ao salvar SLAs em lote');
     }
 
+    // Invalidar cache após criar SLAs em lote
+    invalidateCache();
+    
     return response.text();
   },
 };
 
-
-// Adição ao src/lib/api.ts - Nova seção para notificações
-
-// Interface para notificações
-export interface Notification {
-  id: number;
-  mensagem: string;
-  lida: boolean;
-  criadaEm: string;
-}
-
 // Funções de notificações
 const notifications = {
-  // Listar notificações do usuário
-  list: async (token: string): Promise<Notification[]> => {
-    try {
-      const response = await fetch(`${BASE_URL}/api/v1/notificacoes`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+  list: async (token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/notificacoes`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error('Falha ao listar notificações');
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Erro ao buscar notificações:', error);
-      return []; // Retorna array vazio em caso de erro
+    if (!response.ok) {
+      throw new Error('Falha ao listar notificações');
     }
+
+    return response.json();
   },
 
-  // Marcar notificação como lida
-  markAsRead: async (id: number, token: string): Promise<void> => {
-    try {
-      const response = await fetch(`${BASE_URL}/api/v1/notificacoes/${id}/lida`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+  markAsRead: async (id: number, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/notificacoes/${id}/lida`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error('Falha ao marcar notificação como lida');
-      }
-    } catch (error) {
-      console.error('Erro ao marcar notificação como lida:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error('Falha ao marcar notificação como lida');
     }
+
+    return;
   },
 
-  // Obter preferências de notificação
-  getPreferences: async (token: string): Promise<any> => {
-    try {
-      const response = await fetch(`${BASE_URL}/api/v1/usuarios/preferencias`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Falha ao obter preferências de notificação');
+  getPreferences: async (token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/usuarios/preferencias`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
       }
+    });
 
-      return response.json();
-    } catch (error) {
-      console.error('Erro ao obter preferências de notificação:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error('Falha ao carregar preferências de notificação');
     }
+
+    return response.json();
   },
 
-  // Atualizar preferências de notificação
-  updatePreferences: async (preferences: any, token: string): Promise<void> => {
-    try {
-      const response = await fetch(`${BASE_URL}/api/v1/usuarios/preferencias`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(preferences),
-      });
 
-      if (!response.ok) {
-        throw new Error('Falha ao atualizar preferências de notificação');
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar preferências de notificação:', error);
-      throw error;
+  // Nova função para atualizar preferências de notificação
+  updatePreferences: async (preferences: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/usuarios/preferencias`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(preferences),
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao atualizar preferências de notificação');
     }
+
+    return response.text();
   },
+
+  updateStatus: async (id: number, ativo: boolean, token: string): Promise<any> => {
+    const response = await fetch(`${BASE_URL}/api/v1/admin/users/${id}/status?ativo=${ativo}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Falha ao atualizar status do usuário #${id}`);
+    }
+
+    return response.json();
+  },
+
 };
 
-// Adicionar à exportação
 export const api = {
   auth,
   categories,
@@ -625,7 +1133,6 @@ export const api = {
   tickets,
   users,
   sla,
-  notifications, // Adicione esta linha
+  notifications,
+  statistics,
 };
-
-

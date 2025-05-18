@@ -1,5 +1,3 @@
-// src/app/tecnico/chamados/page.tsx
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { useAuth } from '@/context/auth-context';
+import PriorityEditModal from '@/components/tecnico/priority-edit-modal';
 import { api } from '@/lib/api';
 
 // Interface para o ticket (chamado)
@@ -130,6 +129,9 @@ export default function TecnicoChamadosPage() {
   const [error, setError] = useState('');
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showPriorityModal, setShowPriorityModal] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
   // Carregar chamados
   useEffect(() => {
@@ -204,6 +206,38 @@ export default function TecnicoChamadosPage() {
     }
   };
 
+  // Função para abrir o modal de edição de prioridade
+  const handleOpenPriorityModal = (ticket: Ticket, e: React.MouseEvent) => {
+    e.stopPropagation(); // Evita que o clique propague para o card do chamado
+    setSelectedTicket(ticket);
+    setShowPriorityModal(true);
+  };
+
+  // Função para atualizar a prioridade
+  const handleUpdatePriority = async (newPriority: string, comment: string) => {
+    if (!token || !selectedTicket) return;
+
+    try {
+      await api.tickets.updatePriority(selectedTicket.id, newPriority, comment, token);
+
+      // Atualizar localmente
+      setTickets(prevTickets =>
+        prevTickets.map(ticket =>
+          ticket.id === selectedTicket.id
+            ? { ...ticket, prioridade: newPriority }
+            : ticket
+        )
+      );
+
+      setSuccessMessage('Prioridade atualizada com sucesso!');
+      setShowPriorityModal(false);
+      setSelectedTicket(null);
+    } catch (error) {
+      console.error('Erro ao atualizar prioridade:', error);
+      setError('Não foi possível atualizar a prioridade. Tente novamente mais tarde.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho da página */}
@@ -254,6 +288,13 @@ export default function TecnicoChamadosPage() {
           </Button>
         </div>
       </div>
+
+      {/* Mensagem de sucesso */}
+      {successMessage && (
+        <Alert variant="success" title="Sucesso" onClose={() => setSuccessMessage(null)}>
+          {successMessage}
+        </Alert>
+      )}
 
       {/* Mensagem de erro */}
       {error && (
@@ -310,7 +351,21 @@ export default function TecnicoChamadosPage() {
                     <h3 className="font-medium text-lg text-slate-900">{ticket.titulo}</h3>
                     <div className="flex flex-wrap gap-2 mt-1">
                       <StatusBadge status={ticket.status} />
-                      <PriorityBadge priority={ticket.prioridade} />
+                      <div className="flex items-center">
+                        <PriorityBadge priority={ticket.prioridade} />
+                        {/* Ícone de edição - apenas se o chamado estiver aberto e não tiver técnico */}
+                        {ticket.status === 'ABERTO' && !ticket.tecnico && (
+                          <button 
+                            onClick={(e) => handleOpenPriorityModal(ticket, e)}
+                            className="ml-1 text-blue-600 hover:text-blue-800"
+                            title="Editar Prioridade"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                       <span className="text-xs font-medium px-2 py-1 rounded-full border bg-slate-100 text-slate-800">
                         {ticket.categoria}
                       </span>
@@ -355,6 +410,19 @@ export default function TecnicoChamadosPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Modal para edição de prioridade */}
+      {showPriorityModal && selectedTicket && (
+        <PriorityEditModal
+          ticketId={selectedTicket.id}
+          currentPriority={selectedTicket.prioridade}
+          onClose={() => {
+            setShowPriorityModal(false);
+            setSelectedTicket(null);
+          }}
+          onSave={handleUpdatePriority}
+        />
       )}
 
       {/* Alerta informativo */}

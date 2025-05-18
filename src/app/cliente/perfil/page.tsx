@@ -1,5 +1,4 @@
-// Modificação para src/app/cliente/perfil/page.tsx
-// Parte de preferências de notificação com salvamento automático
+// src/app/cliente/perfil/page.tsx
 
 'use client';
 
@@ -12,7 +11,7 @@ import { Alert } from '@/components/ui/alert';
 import { api } from '@/lib/api';
 
 export default function PerfilPage() {
-  const { user, token } = useAuth();
+  const { user, token, updateUserName, updateUserPassword, error, clearError, successMessage, clearSuccess } = useAuth();
   
   const [formData, setFormData] = useState({
     nome: user?.nome || '',
@@ -37,34 +36,29 @@ export default function PerfilPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPrefs, setIsLoadingPrefs] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [prefsSuccessMessage, setPrefsSuccessMessage] = useState('');
   const [prefsErrorMessage, setPrefsErrorMessage] = useState('');
 
-  // Carregar preferências do usuário
+  // Carregar nome atualizado e preferências do usuário
   useEffect(() => {
-    const loadPreferences = async () => {
+    const loadUserProfile = async () => {
       if (!token) return;
       
-      setIsLoadingPrefs(true);
-      
       try {
-        const data = await api.notifications.getPreferences(token);
-        setNotificationPreferences({
-          notificarAtualizacao: data.notificarAtualizacao,
-          notificarFechamento: data.notificarFechamento,
-          notificarPorEmail: data.notificarPorEmail,
-        });
+        // Carregar nome atualizado
+        const nome = await api.users.getName(token);
+        setFormData(prev => ({ ...prev, nome }));
+        
+        // Carregar preferências
+        const prefs = await api.notifications.getPreferences(token);
+        setNotificationPreferences(prefs);
       } catch (error) {
-        console.error('Erro ao carregar preferências:', error);
-        setPrefsErrorMessage('Não foi possível carregar suas preferências de notificação.');
-      } finally {
-        setIsLoadingPrefs(false);
+        console.error('Erro ao carregar dados do perfil:', error);
       }
     };
     
-    loadPreferences();
+    loadUserProfile();
   }, [token]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,6 +69,11 @@ export default function PerfilPage() {
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
+    
+    // Limpar mensagem de erro quando o usuário começa a editar o formulário novamente
+    if (errorMessage) setErrorMessage('');
+    if (error) clearError();
+    if (successMessage) clearSuccess();
   };
 
   const validateForm = () => {
@@ -111,6 +110,30 @@ export default function PerfilPage() {
     return !Object.values(errors).some(error => error);
   };
 
+  // Método para atualizar o nome do cliente
+  const updateName = async () => {
+    if (!token || !formData.nome.trim()) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // Chama a API para atualizar o nome
+      await api.users.updateName(formData.nome, token);
+      
+      // Atualiza o estado local do usuário (se estiver usando o contexto de autenticação)
+      if (updateUserName) {
+        await updateUserName(formData.nome);
+      }
+    
+    } catch (err) {
+      const apiError = err as any;
+      setErrorMessage(apiError.message || 'Falha ao atualizar o nome. Tente novamente.');
+      console.error('Erro ao atualizar nome:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
@@ -119,18 +142,17 @@ export default function PerfilPage() {
     }
     
     setIsLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
     
     try {
-      // Simulação de atualização de perfil
-      // Em um ambiente real, usaríamos algo como:
-      // await api.users.updateProfile(formData);
+      // Atualizar nome (caso tenha mudado)
+      if (formData.nome !== user?.nome) {
+        await updateName();
+      }
       
-      // Simulação de tempo de processamento
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setSuccessMessage('Perfil atualizado com sucesso!');
+      // Atualizar senha (caso tenha sido preenchida)
+      if (formData.novaSenha && formData.senhaAtual) {
+        await updateUserPassword(formData.senhaAtual, formData.novaSenha);
+      }
       
       // Limpar campos de senha
       setFormData(prev => ({
@@ -140,7 +162,7 @@ export default function PerfilPage() {
         confirmarSenha: '',
       }));
     } catch (error) {
-      setErrorMessage('Erro ao atualizar perfil. Verifique suas informações e tente novamente.');
+      console.error('Erro ao atualizar perfil:', error);
     } finally {
       setIsLoading(false);
     }
@@ -211,11 +233,21 @@ export default function PerfilPage() {
               </Alert>
             )}
             
+            {error && (
+              <Alert 
+                variant="destructive" 
+                title="Erro"
+                onClose={clearError}
+              >
+                {error.message}
+              </Alert>
+            )}
+            
             {successMessage && (
               <Alert 
                 variant="success" 
                 title="Sucesso"
-                onClose={() => setSuccessMessage('')}
+                onClose={clearSuccess}
               >
                 {successMessage}
               </Alert>
@@ -234,7 +266,6 @@ export default function PerfilPage() {
               </div>
             </div>
             
-            {/* ... restante dos campos de informações pessoais ... */}
             <FormField
               id="nome"
               label="Nome completo"

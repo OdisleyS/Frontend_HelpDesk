@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { api } from '@/lib/api';
+import TicketEditModal from '@/components/cliente/cliente-ticket-edit-modal';
 
 // Interface para o ticket (chamado)
 interface Ticket {
@@ -19,7 +20,10 @@ interface Ticket {
   status: string;
   categoria: string;
   abertoEm: string;
+  fechadoEm?: string;
   prazoSla: string;
+  tecnico?: any;
+  departamento?: any;
 }
 
 // Interface para histórico do ticket
@@ -142,8 +146,32 @@ export default function ChamadoDetailsPage({ params }: { params: { id: string } 
   const [isCancelling, setIsCancelling] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [categorias, setCategorias] = useState<any[]>([]);
+  const [departamentos, setDepartamentos] = useState<any[]>([]);
 
-  // Carregar detalhes do chamado
+  //Para carregar categorias e departamentos
+  useEffect(() => {
+    const loadCategoriesAndDepartments = async () => {
+      if (!token) return;
+
+      try {
+        const [categoriasData, departamentosData] = await Promise.all([
+          api.categories.list(token),
+          api.departments.list(token)
+        ]);
+
+        setCategorias(categoriasData.filter((cat: any) => cat.ativo));
+        setDepartamentos(departamentosData.filter((dep: any) => dep.ativo));
+      } catch (error) {
+        console.error('Erro ao carregar categorias e departamentos:', error);
+      }
+    };
+
+    loadCategoriesAndDepartments();
+  }, [token]);
+
+  // Segundo useEffect para carregar detalhes do chamado
   useEffect(() => {
     const loadTicketDetails = async () => {
       if (!token) return;
@@ -156,9 +184,14 @@ export default function ChamadoDetailsPage({ params }: { params: { id: string } 
         const ticketData = await api.tickets.getById(Number(params.id), token);
         setTicket(ticketData);
 
-        // Buscar histórico do chamado
-        const historyData = await api.tickets.getHistory(Number(params.id), token);
-        setHistory(historyData);
+        // Buscar histórico do chamado - sem tratamento de erro silencioso
+        try {
+          const historyData = await api.tickets.getHistory(Number(params.id), token);
+          setHistory(historyData || []);
+        } catch (historyError) {
+          console.error('Erro ao carregar o histórico:', historyError);
+          setError('Não foi possível carregar o histórico. Tente novamente mais tarde.');
+        }
       } catch (error) {
         console.error('Erro ao carregar detalhes do chamado:', error);
         setError('Não foi possível carregar os detalhes do chamado. Tente novamente mais tarde.');
@@ -205,6 +238,22 @@ export default function ChamadoDetailsPage({ params }: { params: { id: string } 
       setError('Não foi possível cancelar o chamado. Tente novamente mais tarde.');
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  // Função para refrescar os dados após a edição
+  const refreshTicketData = async () => {
+    if (!token) return;
+    setIsLoading(true);
+    try {
+      const ticketData = await api.tickets.getById(Number(params.id), token);
+      setTicket(ticketData);
+      setShowEditModal(false);
+      setSuccessMessage('Chamado atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao recarregar dados do chamado:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -302,16 +351,37 @@ export default function ChamadoDetailsPage({ params }: { params: { id: string } 
           <div className="text-sm text-slate-500">
             Status atual: <StatusBadge status={ticket.status} />
           </div>
-          {/* Mostrar botão de cancelar apenas se o chamado estiver aberto */}
-          {ticket.status === 'ABERTO' && (
-            <Button
-              variant="destructive"
-              onClick={handleCancelTicket}
-              disabled={isCancelling}
-            >
-              {isCancelling ? 'Cancelando...' : 'Cancelar Chamado'}
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {/* Mostrar botão de Editar apenas se o chamado estiver aberto e não tiver técnico */}
+            {ticket.status === 'ABERTO' && !ticket.tecnico && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  // Garantir que temos categorias e departamentos carregados
+                  if (categorias.length === 0 || departamentos.length === 0) {
+                    setError('Carregando opções de categoria e departamento...');
+                    return;
+                  }
+                  setShowEditModal(true);
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Editar Chamado
+              </Button>
+            )}
+            {/* Mostrar botão de cancelar apenas se o chamado estiver aberto */}
+            {ticket.status === 'ABERTO' && (
+              <Button
+                variant="destructive"
+                onClick={handleCancelTicket}
+                disabled={isCancelling}
+              >
+                {isCancelling ? 'Cancelando...' : 'Cancelar Chamado'}
+              </Button>
+            )}
+          </div>
         </CardFooter>
       </Card>
 
@@ -350,6 +420,22 @@ export default function ChamadoDetailsPage({ params }: { params: { id: string } 
           )}
         </CardContent>
       </Card>
+      {showEditModal && ticket && (
+        <TicketEditModal
+          ticketId={ticket.id}
+          currentData={{
+            titulo: ticket.titulo,
+            descricao: ticket.descricao,
+            categoriaId: ticket.categoria ?
+              categorias.find(c => c.nome === ticket.categoria)?.id || 0 : 0,
+            departamentoId: ticket.departamento ?
+              departamentos.find(d => d.nome === ticket.departamento)?.id || 0 : 0,
+            prioridade: ticket.prioridade
+          }}
+          onClose={() => setShowEditModal(false)}
+          onSave={refreshTicketData}
+        />
+      )}
     </div>
   );
 }

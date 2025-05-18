@@ -34,12 +34,12 @@ enum Priority {
 export default function AbrirChamadoPage() {
   const router = useRouter();
   const { token } = useAuth();
-  
+
   // Estado para armazenar as categorias e departamentos da API
   const [categorias, setCategorias] = useState<Category[]>([]);
   const [departamentos, setDepartamentos] = useState<Department[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  
+
   const [formData, setFormData] = useState({
     titulo: '',
     descricao: '',
@@ -47,7 +47,7 @@ export default function AbrirChamadoPage() {
     departamentoId: '',
     prioridade: Priority.MEDIA,
   });
-  
+
   const [formErrors, setFormErrors] = useState({
     titulo: '',
     descricao: '',
@@ -59,6 +59,9 @@ export default function AbrirChamadoPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Adicionar constante para o limite máximo de caracteres
+  const DESCRICAO_MAX_LENGTH = 500;
+
   // Carregar categorias e departamentos ao montar o componente
   useEffect(() => {
     const loadData = async () => {
@@ -69,7 +72,7 @@ export default function AbrirChamadoPage() {
         console.log('Categorias carregadas:', categoriasData);
         // Filtrar apenas categorias ativas
         setCategorias(categoriasData.filter((cat: Category) => cat.ativo));
-        
+
         // Carregar departamentos
         const departamentosData = await api.departments.list(token as string);
         console.log('Departamentos carregados:', departamentosData);
@@ -82,7 +85,7 @@ export default function AbrirChamadoPage() {
         setLoadingData(false);
       }
     };
-    
+
     if (token) {
       loadData();
     }
@@ -91,7 +94,12 @@ export default function AbrirChamadoPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
+
+    // Se for o campo de descrição, verificar o limite
+    if (name === 'descricao' && value.length > DESCRICAO_MAX_LENGTH) {
+      return; // Não atualiza se exceder o limite
+    }
+
     // Limpar erro ao editar
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
@@ -105,41 +113,41 @@ export default function AbrirChamadoPage() {
       categoriaId: '',
       departamentoId: '',
     };
-    
+
     // Validações
     if (!formData.titulo.trim()) {
       errors.titulo = 'O título é obrigatório';
     }
-    
+
     if (!formData.descricao.trim()) {
       errors.descricao = 'A descrição é obrigatória';
     }
-    
+
     if (!formData.categoriaId) {
       errors.categoriaId = 'Selecione uma categoria';
     }
-    
+
     if (!formData.departamentoId) {
       errors.departamentoId = 'Selecione um departamento';
     }
-    
+
     setFormErrors(errors);
-    
+
     // Retorna true se não houver erros
     return !Object.values(errors).some(error => error);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setIsLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
-    
+
     try {
       // Converter os IDs para números
       const ticketData = {
@@ -149,15 +157,15 @@ export default function AbrirChamadoPage() {
         departamentoId: Number(formData.departamentoId),
         prioridade: formData.prioridade
       };
-      
+
       console.log('Enviando dados do chamado:', ticketData);
-      
+
       // Enviar para API
       const response = await api.tickets.create(ticketData, token as string);
       console.log('Chamado criado com sucesso:', response);
-      
+
       setSuccessMessage('Chamado aberto com sucesso! Você será redirecionado para a lista de chamados.');
-      
+
       // Após 2 segundos, redirecionar para a lista de chamados
       setTimeout(() => {
         router.push('/cliente/meus-chamados');
@@ -176,34 +184,34 @@ export default function AbrirChamadoPage() {
         <h2 className="text-2xl font-bold text-slate-900">Abrir Novo Chamado</h2>
         <p className="text-slate-600 mt-1">Preencha os campos abaixo para registrar um novo chamado de suporte.</p>
       </div>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Formulário de Chamado</CardTitle>
         </CardHeader>
-        
+
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {errorMessage && (
-              <Alert 
-                variant="destructive" 
+              <Alert
+                variant="destructive"
                 title="Erro"
                 onClose={() => setErrorMessage('')}
               >
                 {errorMessage}
               </Alert>
             )}
-            
+
             {successMessage && (
-              <Alert 
-                variant="success" 
+              <Alert
+                variant="success"
                 title="Sucesso"
                 onClose={() => setSuccessMessage('')}
               >
                 {successMessage}
               </Alert>
             )}
-            
+
             {loadingData ? (
               <div className="flex justify-center py-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
@@ -226,7 +234,7 @@ export default function AbrirChamadoPage() {
                     autoFocus
                   />
                 </FormField>
-                
+
                 <FormField
                   id="categoriaId"
                   label="Categoria"
@@ -245,7 +253,7 @@ export default function AbrirChamadoPage() {
                     ))}
                   </select>
                 </FormField>
-                
+
                 <FormField
                   id="departamentoId"
                   label="Departamento"
@@ -264,7 +272,7 @@ export default function AbrirChamadoPage() {
                     ))}
                   </select>
                 </FormField>
-                
+
                 <FormField
                   id="prioridade"
                   label="Prioridade"
@@ -306,7 +314,6 @@ export default function AbrirChamadoPage() {
                     </label>
                   </div>
                 </FormField>
-                
                 <FormField
                   id="descricao"
                   label="Descrição"
@@ -320,12 +327,18 @@ export default function AbrirChamadoPage() {
                     value={formData.descricao}
                     onChange={handleChange}
                     className={`flex w-full rounded-md border ${formErrors.descricao ? 'border-red-500' : 'border-slate-300'} bg-transparent p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2`}
+                    maxLength={DESCRICAO_MAX_LENGTH}
                   />
+                  <div className={`text-xs mt-1 text-right ${formData.descricao.length > DESCRICAO_MAX_LENGTH * 0.9 ? 'text-orange-500' :
+                      formData.descricao.length > DESCRICAO_MAX_LENGTH * 0.8 ? 'text-yellow-500' : 'text-slate-500'
+                    }`}>
+                    {formData.descricao.length}/{DESCRICAO_MAX_LENGTH} caracteres
+                  </div>
                 </FormField>
               </>
             )}
           </CardContent>
-          
+
           <CardFooter className="flex justify-between">
             <Button
               type="button"
@@ -335,7 +348,7 @@ export default function AbrirChamadoPage() {
             >
               Cancelar
             </Button>
-            
+
             <Button
               type="submit"
               disabled={isLoading || loadingData}
@@ -345,7 +358,7 @@ export default function AbrirChamadoPage() {
           </CardFooter>
         </form>
       </Card>
-      
+
       <Alert variant="info" title="Dica">
         Forneça o máximo de detalhes possível na descrição para que nossa equipe possa ajudá-lo mais rapidamente.
       </Alert>

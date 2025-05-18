@@ -18,6 +18,8 @@ interface AuthContextType extends AuthState {
   successMessage: string | null;
   clearError: () => void;
   clearSuccess: () => void;
+  updateUserName: (name: string) => Promise<void>;
+  updateUserPassword: (senhaAtual: string, novaSenha: string) => Promise<void>;
 }
 
 // Criação do contexto
@@ -288,6 +290,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
     router.push('/login');
   };
 
+    // Nova função para atualizar o nome do usuário
+  const updateUserName = async (name: string) => {
+    try {
+      if (!state.token) throw new Error("Usuário não autenticado");
+      
+      await api.users.updateName(name, state.token);
+      
+      // Atualizar o estado local
+      setState(prev => ({
+        ...prev,
+        user: prev.user ? { ...prev.user, nome: name } : null
+      }));
+      
+      setSuccessMessage('Nome atualizado com sucesso!');
+    } catch (err) {
+      const apiError = err as ApiError;
+      setError({
+        message: apiError.message || 'Falha ao atualizar o nome',
+        status: apiError.status || 400
+      });
+    }
+  };
+  
+  // Nova função para atualizar a senha do usuário
+  const updateUserPassword = async (senhaAtual: string, novaSenha: string) => {
+    try {
+      if (!state.token) throw new Error("Usuário não autenticado");
+      
+      await api.users.updatePassword(senhaAtual, novaSenha, state.token);
+      
+      setSuccessMessage('Senha atualizada com sucesso!');
+    } catch (err) {
+      const apiError = err as ApiError;
+      setError({
+        message: apiError.message || 'Falha ao atualizar a senha. Verifique a senha atual.',
+        status: apiError.status || 400
+      });
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -300,6 +342,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         successMessage,
         clearError,
         clearSuccess,
+        // Adicione as novas funções
+        updateUserName,
+        updateUserPassword,
       }}
     >
       {children}
