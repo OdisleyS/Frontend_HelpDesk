@@ -1,5 +1,3 @@
-// src/components/statistics/category-distribution-chart.tsx
-
 'use client';
 
 import { 
@@ -54,7 +52,7 @@ export default function CategoryDistributionChart({ data }: CategoryDistribution
             <span className="font-medium">Quantidade:</span> {data.value}
           </p>
           <p className="text-sm">
-            <span className="font-medium">Percentual:</span> {((data.value / total) * 100).toFixed(1)}%
+            <span className="font-medium">Percentual:</span> {((data.value / total) * 100).toFixed(0)}%
           </p>
         </div>
       );

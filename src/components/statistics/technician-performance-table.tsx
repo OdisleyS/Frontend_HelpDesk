@@ -1,15 +1,13 @@
-// src/components/statistics/technician-performance-table.tsx
-
 'use client';
 
 interface TechnicianPerformanceTableProps {
   data: {
-    name: string;
-    assigned: number;
-    resolved: number;
-    resolutionRate: string;
-    avgResolutionTime: number;
-    classification: string;
+    nome: string;
+    atribuidos: number;
+    resolvidos: number;
+    taxa: string;
+    avgHours: number;
+    classificacao: string;
   }[];
 }
 
@@ -17,8 +15,8 @@ export default function TechnicianPerformanceTable({ data }: TechnicianPerforman
   // Ordenar os técnicos pela taxa de resolução (decrescente)
   const sortedData = [...data].sort((a, b) => {
     // Converter taxas de percentual (ex: "88%") para número
-    const rateA = parseInt(a.resolutionRate.replace('%', ''), 10) || 0;
-    const rateB = parseInt(b.resolutionRate.replace('%', ''), 10) || 0;
+    const rateA = parseInt(a.taxa.replace('%', ''), 10) || 0;
+    const rateB = parseInt(b.taxa.replace('%', ''), 10) || 0;
     return rateB - rateA;
   });
   
@@ -26,10 +24,11 @@ export default function TechnicianPerformanceTable({ data }: TechnicianPerforman
   function getEfficiencyClass(efficiency: string): string {
     switch (efficiency) {
       case 'Excelente': return 'bg-green-100 text-green-800';
-      case 'Muito Bom': return 'bg-blue-100 text-blue-800';
-      case 'Bom': return 'bg-yellow-100 text-yellow-800';
-      case 'Regular': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-red-100 text-red-800';
+      case 'Bom': return 'bg-blue-100 text-blue-800';
+      case 'Regular': return 'bg-yellow-100 text-yellow-800';
+      case 'Precisa Melhorar': return 'bg-red-100 text-red-800';
+      case 'Sem Avaliação': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   }
 
@@ -49,14 +48,14 @@ export default function TechnicianPerformanceTable({ data }: TechnicianPerforman
         <tbody>
           {sortedData.map((tech, index) => (
             <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-              <td className="px-4 py-3 border-b font-medium">{tech.name}</td>
-              <td className="px-4 py-3 border-b text-center">{tech.assigned}</td>
-              <td className="px-4 py-3 border-b text-center">{tech.resolved}</td>
-              <td className="px-4 py-3 border-b text-center">{tech.resolutionRate}</td>
-              <td className="px-4 py-3 border-b text-center">{tech.avgResolutionTime}</td>
+              <td className="px-4 py-3 border-b font-medium">{tech.nome}</td>
+              <td className="px-4 py-3 border-b text-center">{tech.atribuidos}</td>
+              <td className="px-4 py-3 border-b text-center">{tech.resolvidos}</td>
+              <td className="px-4 py-3 border-b text-center">{tech.taxa}</td>
+              <td className="px-4 py-3 border-b text-center">{tech.avgHours.toFixed(1)}</td>
               <td className="px-4 py-3 border-b text-center">
-                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getEfficiencyClass(tech.classification)}`}>
-                  {tech.classification}
+                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getEfficiencyClass(tech.classificacao)}`}>
+                  {tech.classificacao}
                 </span>
               </td>
             </tr>

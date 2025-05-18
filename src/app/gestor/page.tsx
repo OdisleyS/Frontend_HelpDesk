@@ -1,5 +1,3 @@
-// src/app/gestor/page.tsx (versão atualizada)
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -9,37 +7,44 @@ import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { api } from '@/lib/api';
 
+// Interface para os dados otimizados do dashboard
+interface DashboardStats {
+  totalChamados: number;
+  chamadosAbertos: number;
+  chamadosEmAnalise: number;
+  chamadosEmAtendimento: number;
+  chamadosAguardandoCliente: number;
+  chamadosResolvidos: number;
+  chamadosFechados: number;
+  chamadosBaixa: number;
+  chamadosMedia: number;
+  chamadosAlta: number;
+  slaConformidade: number;
+  usuariosAtivos: number;
+}
+
 export default function GestorDashboard() {
   const { user, token } = useAuth();
   const [welcomeMessage, setWelcomeMessage] = useState('');
   
-  // Estados para armazenar dados carregados do backend
-  const [totalTickets, setTotalTickets] = useState(0);
-  const [activeClients, setActiveClients] = useState(0);
-  const [slaCompliance, setSlaCompliance] = useState(0);
+  // Estado único para todos os dados do dashboard
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Carregar dados do backend
+  // Carregar dados do backend uma única vez
   useEffect(() => {
     if (!token) return;
 
-    // Função para carregar todos os dados
+    // Função para carregar dados do dashboard
     const loadDashboardData = async () => {
       setLoading(true);
       setError('');
       
       try {
-        // Carregar dados em paralelo para melhor performance
-        const [ticketsCount, clients, sla] = await Promise.all([
-          api.statistics.getTicketCounts(token),
-          api.statistics.getActiveClients(token),
-          api.statistics.getSlaCompliance(token)
-        ]);
-        
-        setTotalTickets(ticketsCount);
-        setActiveClients(clients);
-        setSlaCompliance(Math.round(sla)); // Arredonda para inteiro
+        // Apenas uma única chamada ao invés de múltiplas
+        const dashboardStats = await api.statistics.getDashboardStats(token);
+        setStats(dashboardStats);
       } catch (err) {
         console.error('Erro ao carregar dados do dashboard:', err);
         setError('Não foi possível carregar os dados do dashboard. Tente novamente mais tarde.');
@@ -84,7 +89,7 @@ export default function GestorDashboard() {
                 <p className="text-4xl font-bold text-blue-600">...</p>
               </div>
             ) : (
-              <p className="text-4xl font-bold text-blue-600">{totalTickets}</p>
+              <p className="text-4xl font-bold text-blue-600">{stats?.totalChamados || 0}</p>
             )}
           </CardContent>
           <CardFooter>
@@ -103,7 +108,7 @@ export default function GestorDashboard() {
                 <p className="text-4xl font-bold text-green-600">...</p>
               </div>
             ) : (
-              <p className="text-4xl font-bold text-green-600">{activeClients}</p>
+              <p className="text-4xl font-bold text-green-600">{stats?.usuariosAtivos || 0}</p>
             )}
           </CardContent>
           <CardFooter>
@@ -122,7 +127,7 @@ export default function GestorDashboard() {
                 <p className="text-4xl font-bold text-yellow-500">...</p>
               </div>
             ) : (
-              <p className="text-4xl font-bold text-yellow-500">{slaCompliance}%</p>
+              <p className="text-4xl font-bold text-yellow-500">{Math.round(stats?.slaConformidade || 0)}%</p>
             )}
           </CardContent>
           <CardFooter>

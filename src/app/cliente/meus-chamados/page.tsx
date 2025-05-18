@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api';
+import TicketEditModal from '@/components/cliente/cliente-ticket-edit-modal';
 
 // Enum para filtro de status
 enum StatusFilter {
@@ -30,6 +31,7 @@ interface Ticket {
   categoria: string;
   abertoEm: string;
   prazoSla: string;
+  tecnico?: any;
 }
 
 // Componente de status visuais
@@ -135,29 +137,79 @@ export default function MeusChamadosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [welcomeMessage, setWelcomeMessage] = useState('');
-  
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [categorias, setCategorias] = useState<any[]>([]);
+  const [departamentos, setDepartamentos] = useState<any[]>([]);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  //Função para abrir o modal de edição
+  // const handleEditTicket = (ticket: any, e: React.MouseEvent) => {
+  //   e.stopPropagation(); // Impedir navegação para tela de detalhes
+  //   setSelectedTicket(ticket);
+  //   setShowEditModal(true);
+  // };
+  const handleEditTicket = async (ticket: any, e: React.MouseEvent) => {
+    e.stopPropagation(); // Impedir navegação para tela de detalhes
+
+    // Definir loading enquanto carrega dados adicionais
+    setIsLoading(true);
+
+    try {
+      if (token) {
+        // Obter detalhes completos do chamado para edição
+        const ticketDetails = await api.tickets.getById(ticket.id, token);
+
+        // Carregar categorias e departamentos (se não foram carregados antes)
+        if (categorias.length === 0 || departamentos.length === 0) {
+          const [categoriasData, departamentosData] = await Promise.all([
+            api.categories.list(token),
+            api.departments.list(token)
+          ]);
+
+          setCategorias(categoriasData.filter((cat: any) => cat.ativo));
+          setDepartamentos(departamentosData.filter((dep: any) => dep.ativo));
+        }
+
+        // Definir o ticket selecionado com dados completos
+        setSelectedTicket(ticketDetails);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar detalhes para edição:', error);
+      setError('Falha ao preparar chamado para edição. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+      setShowEditModal(true);
+    }
+  };
+
+  //Função para recarregar chamados após a edição
+  const handleTicketUpdated = () => {
+    setShowEditModal(false);
+    setSuccessMessage('Chamado atualizado com sucesso!');
+  };
   useEffect(() => {
     const loadTickets = async () => {
       if (!token) return;
-      
+
       setIsLoading(true);
       setError('');
-      
+
       try {
         // Se o filtro for TODOS, precisamos fazer múltiplas chamadas para cada status
         if (statusFilter === StatusFilter.TODOS) {
           // Array de todos os status que queremos buscar
           const statusesToFetch = [
-            'ABERTO', 'EM_ANALISE', 'EM_ATENDIMENTO', 
+            'ABERTO', 'EM_ANALISE', 'EM_ATENDIMENTO',
             'AGUARDANDO_CLIENTE', 'RESOLVIDO', 'FECHADO'
           ];
-          
+
           // Buscar todos os status em paralelo
-          const allTicketsPromises = statusesToFetch.map(status => 
+          const allTicketsPromises = statusesToFetch.map(status =>
             api.tickets.listByStatus(status, token));
-          
+
           const results = await Promise.all(allTicketsPromises);
-          
+
           // Combinar todos os resultados em um único array
           const allTickets = results.flat();
           setTickets(allTickets);
@@ -173,9 +225,29 @@ export default function MeusChamadosPage() {
         setIsLoading(false);
       }
     };
-    
+
     loadTickets();
   }, [statusFilter, token]);
+
+  useEffect(() => {
+    const loadCategoriesAndDepartments = async () => {
+      if (!token) return;
+
+      try {
+        const [categoriasData, departamentosData] = await Promise.all([
+          api.categories.list(token),
+          api.departments.list(token)
+        ]);
+
+        setCategorias(categoriasData.filter((cat: any) => cat.ativo));
+        setDepartamentos(departamentosData.filter((dep: any) => dep.ativo));
+      } catch (error) {
+        console.error('Erro ao carregar categorias e departamentos:', error);
+      }
+    };
+
+    loadCategoriesAndDepartments();
+  }, [token]);
 
   return (
     <div className="space-y-6">
@@ -189,6 +261,16 @@ export default function MeusChamadosPage() {
           <h2 className="text-xl font-bold text-slate-900">Meus Chamados</h2>
           <p className="text-slate-600 mt-1">Visualize e gerencie seus chamados de suporte.</p>
         </div>
+        {successMessage && (
+          <Alert
+            variant="success"
+            title="Sucesso"
+            onClose={() => setSuccessMessage(null)}
+            className="mb-4"
+          >
+            {successMessage}
+          </Alert>
+        )}
         <Button onClick={() => router.push('/cliente/abrir-chamado')}>
           <svg className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -200,35 +282,35 @@ export default function MeusChamadosPage() {
       {/* Filtros */}
       <div className="bg-white p-4 rounded-lg border border-slate-200">
         <div className="flex flex-wrap gap-2">
-          <Button 
+          <Button
             variant={statusFilter === StatusFilter.TODOS ? 'default' : 'outline'}
             onClick={() => setStatusFilter(StatusFilter.TODOS)}
             size="sm"
           >
             Todos
           </Button>
-          <Button 
+          <Button
             variant={statusFilter === StatusFilter.ABERTO ? 'default' : 'outline'}
             onClick={() => setStatusFilter(StatusFilter.ABERTO)}
             size="sm"
           >
             Abertos
           </Button>
-          <Button 
+          <Button
             variant={statusFilter === StatusFilter.EM_ATENDIMENTO ? 'default' : 'outline'}
             onClick={() => setStatusFilter(StatusFilter.EM_ATENDIMENTO)}
             size="sm"
           >
             Em Atendimento
           </Button>
-          <Button 
+          <Button
             variant={statusFilter === StatusFilter.AGUARDANDO_CLIENTE ? 'default' : 'outline'}
             onClick={() => setStatusFilter(StatusFilter.AGUARDANDO_CLIENTE)}
             size="sm"
           >
             Aguardando Você
           </Button>
-          <Button 
+          <Button
             variant={statusFilter === StatusFilter.RESOLVIDO ? 'default' : 'outline'}
             onClick={() => setStatusFilter(StatusFilter.RESOLVIDO)}
             size="sm"
@@ -272,8 +354,8 @@ export default function MeusChamadosPage() {
             </svg>
             <h3 className="text-lg font-medium text-slate-700 mt-4">Nenhum chamado encontrado</h3>
             <p className="text-slate-500 mt-2">
-              {statusFilter === StatusFilter.TODOS 
-                ? 'Você ainda não possui chamados registrados.' 
+              {statusFilter === StatusFilter.TODOS
+                ? 'Você ainda não possui chamados registrados.'
                 : `Você não possui chamados com status "${StatusFilter[statusFilter].replace('_', ' ').toLowerCase()}".`}
             </p>
             <Button className="mt-4" onClick={() => router.push('/cliente/abrir-chamado')}>
@@ -287,15 +369,14 @@ export default function MeusChamadosPage() {
       ) : (
         <div className="space-y-4">
           {tickets.map(ticket => (
-            <div 
-              key={ticket.id} 
-              onClick={() => router.push(`/cliente/chamado/${ticket.id}`)} 
+            <div
+              key={ticket.id}
               className="cursor-pointer"
             >
               <Card className="hover:border-blue-300 transition-colors">
                 <CardContent className="p-4">
                   <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
-                    <div>
+                    <div onClick={() => router.push(`/cliente/chamado/${ticket.id}`)}>
                       <h3 className="font-medium text-lg text-slate-900">{ticket.titulo}</h3>
                       <div className="flex flex-wrap gap-2 mt-1">
                         <StatusBadge status={ticket.status} />
@@ -304,12 +385,37 @@ export default function MeusChamadosPage() {
                           {ticket.categoria}
                         </span>
                       </div>
+                      <div className="text-sm text-slate-500 mt-2">
+                        <div>Aberto em: {formatDate(ticket.abertoEm)}</div>
+                        {ticket.prazoSla && (
+                          <div>Prazo: {formatDate(ticket.prazoSla)}</div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-sm text-slate-500">
-                      <div>Aberto em: {formatDate(ticket.abertoEm)}</div>
-                      {ticket.prazoSla && (
-                        <div>Prazo: {formatDate(ticket.prazoSla)}</div>
+                    <div className="flex gap-2">
+                      {/* Mostrar botão de editar apenas se o chamado estiver aberto e não tiver técnico */}
+                      {ticket.status === 'ABERTO' && !ticket.tecnico && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => handleEditTicket(ticket, e)}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                          Editar
+                        </Button>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const url = `/cliente/chamado/${ticket.id}`;
+                          window.location.href = url;
+                        }}
+                      >
+                        Ver Detalhes
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -323,6 +429,22 @@ export default function MeusChamadosPage() {
       <Alert variant="info" title="Dica">
         Para mais detalhes sobre um chamado específico, clique nele para ver seu histórico completo.
       </Alert>
+      {showEditModal && selectedTicket && (
+        <TicketEditModal
+          ticketId={selectedTicket.id}
+          currentData={{
+            titulo: selectedTicket.titulo || '',
+            descricao: selectedTicket.descricao || '',
+            categoriaId: categorias.find(c => c.nome === selectedTicket.categoria)?.id || 0,
+            departamentoId: selectedTicket.departamento ?
+              departamentos.find(d => d.nome === selectedTicket.departamento)?.id || 0 :
+              0,
+            prioridade: selectedTicket.prioridade || 'MEDIA'
+          }}
+          onClose={() => setShowEditModal(false)}
+          onSave={handleTicketUpdated}
+        />
+      )}
     </div>
   );
 }

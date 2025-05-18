@@ -1,7 +1,38 @@
 // src/lib/api.ts
 
-// Vamos ampliar a API para incluir as funções necessárias para técnicos
+// Cache de estatísticas para reduzir chamadas ao servidor
+interface StatsCache {
+  dashboardStats: any | null;
+  resolutionTime: any[] | null;
+  technicianPerformance: any[] | null;
+  categoryDistribution: any[] | null;
+  lastUpdated: number | null;
+  ttl: number; // Time to live em millisegundos
+}
 
+const statsCache: StatsCache = {
+  dashboardStats: null,
+  resolutionTime: null,
+  technicianPerformance: null,
+  categoryDistribution: null,
+  lastUpdated: null,
+  ttl: 2 * 60 * 1000 // 2 minutos em millisegundos
+};
+
+// Função para verificar se o cache é válido
+const isCacheValid = (): boolean => {
+  if (!statsCache.lastUpdated) return false;
+  
+  const now = Date.now();
+  return (now - statsCache.lastUpdated) < statsCache.ttl;
+};
+
+// Função para invalidar o cache (útil quando o usuário faz alguma ação que altera os dados)
+const invalidateCache = (): void => {
+  statsCache.lastUpdated = null;
+};
+
+// Vamos ampliar a API para incluir as funções necessárias para técnicos
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 // Tipos de requisição para autenticação
@@ -137,6 +168,9 @@ const categories = {
       throw new Error('Falha ao criar categoria');
     }
 
+    // Invalidar cache de estatísticas após criar categoria
+    invalidateCache();
+    
     return response.json();
   },
 
@@ -154,6 +188,9 @@ const categories = {
       throw new Error('Falha ao atualizar categoria');
     }
 
+    // Invalidar cache de estatísticas após atualizar categoria
+    invalidateCache();
+    
     return response.json();
   },
 };
@@ -284,6 +321,9 @@ const tickets = {
       throw new Error('Falha ao criar chamado');
     }
 
+    // Invalidar cache de estatísticas após criar chamado
+    invalidateCache();
+    
     return response.json();
   },
 
@@ -301,6 +341,9 @@ const tickets = {
       if (!response.ok) {
         throw new Error('Falha ao atualizar status do chamado');
       }
+      
+      // Invalidar cache de estatísticas após atualizar status
+      invalidateCache();
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
       throw error;
@@ -326,6 +369,9 @@ const tickets = {
 
         throw new Error(message);
       }
+      
+      // Invalidar cache de estatísticas após atribuir técnico
+      invalidateCache();
     } catch (error) {
       console.error('Erro ao assumir chamado:', error);
       throw error;
@@ -348,10 +394,31 @@ const tickets = {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Falha ao atualizar prioridade do chamado');
       }
+      
+      // Invalidar cache de estatísticas após atualizar prioridade
+      invalidateCache();
     } catch (error) {
       console.error('Erro ao atualizar prioridade:', error);
       throw error;
     }
+  },
+
+  //Para permitir cliente editar chamado
+  updateTicket: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/tickets/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao atualizar chamado');
+    }
+
+    return response.json();
   },
 
   resolveTicket: async (id: number, token: string) => {
@@ -369,6 +436,9 @@ const tickets = {
         throw new Error(errorData.message || `Falha ao resolver chamado #${id}`);
       }
 
+      // Invalidar cache de estatísticas após resolver chamado
+      invalidateCache();
+      
       // Não tentar fazer .json() se não houver corpo na resposta
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -396,6 +466,9 @@ const tickets = {
         throw new Error(errorData.message || `Falha ao cancelar chamado #${id}`);
       }
 
+      // Invalidar cache de estatísticas após cancelar chamado
+      invalidateCache();
+      
       // Não tentar fazer .json() se não houver corpo na resposta
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -507,35 +580,20 @@ const tickets = {
       throw error;
     }
   }
-
 };
 
 // Para estatísticas
 const statistics = {
-  getTicketCounts: async (token: string): Promise<number> => {
+  // Obter dados completos do dashboard com cache
+  getDashboardStats: async (token: string) => {
     try {
-      // Busca todos os chamados independente do status
-      const allStatuses = ['ABERTO', 'EM_ANALISE', 'EM_ATENDIMENTO',
-        'AGUARDANDO_CLIENTE', 'RESOLVIDO', 'FECHADO'];
-
-      // Para cada status, buscar chamados e combinar
-      const ticketPromises = allStatuses.map(status =>
-        tickets.listByStatus(status, token)
-      );
-
-      const results = await Promise.all(ticketPromises);
-      const totalTickets = results.reduce((total, tickets) => total + tickets.length, 0);
-
-      return totalTickets;
-    } catch (error) {
-      console.error('Erro ao buscar contagem de chamados:', error);
-      throw error;
-    }
-  },
-
-  getActiveClients: async (token: string): Promise<number> => {
-    try {
-      const response = await fetch(`${BASE_URL}/api/v1/admin/users`, {
+      // Verificar se o cache é válido
+      if (isCacheValid() && statsCache.dashboardStats) {
+        console.log('Usando cache para dashboard stats');
+        return statsCache.dashboardStats;
+      }
+      
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/dashboard`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -543,30 +601,101 @@ const statistics = {
       });
 
       if (!response.ok) {
-        throw new Error('Falha ao listar usuários');
+        throw new Error('Falha ao carregar estatísticas do dashboard');
       }
 
       const data = await response.json();
+      
+      // Atualizar o cache
+      statsCache.dashboardStats = data;
+      statsCache.lastUpdated = Date.now();
+      
+      return data;
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas do dashboard:', error);
+      throw error;
+    }
+  },
 
-      // Verificamos se a resposta é um array ou um objeto paginado
-      if (Array.isArray(data)) {
-        return data.filter((user: User) => user.tipo === 'CLIENTE' && user.ativo === true).length;
-      } else if (data.content && Array.isArray(data.content)) {
-        // Se for um objeto paginado
-        return data.content.filter((user: User) => user.tipo === 'CLIENTE' && user.ativo === true).length;
-      } else {
-        console.warn('Formato de resposta inesperado:', data);
-        return 0;
+  // Obter distribuição por categoria com cache
+  getCategoryDistribution: async (token: string) => {
+    try {
+      // Verificar se o cache é válido
+      if (isCacheValid() && statsCache.categoryDistribution) {
+        console.log('Usando cache para category distribution');
+        return statsCache.categoryDistribution;
       }
+      
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/category-distribution`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar distribuição de categorias');
+      }
+
+      const data = await response.json();
+      
+      // Atualizar o cache
+      statsCache.categoryDistribution = data;
+      if (!statsCache.lastUpdated) statsCache.lastUpdated = Date.now();
+      
+      return data;
+    } catch (error) {
+      console.error('Erro ao buscar distribuição de categorias:', error);
+      throw error;
+    }
+  },
+
+  // Obter contagem de tickets
+  getTicketCounts: async (token: string) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/ticket-counts`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar contagem de tickets');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Erro ao buscar contagem de tickets:', error);
+      throw error;
+    }
+  },
+
+  // Obter clientes ativos
+  getActiveClients: async (token: string) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/active-clients`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar clientes ativos');
+      }
+
+      return response.json();
     } catch (error) {
       console.error('Erro ao buscar clientes ativos:', error);
       throw error;
     }
   },
 
-  getSlaCompliance: async (token: string): Promise<number> => {
+  // Obter conformidade com SLA
+  getSlaCompliance: async (token: string) => {
     try {
-      const response = await fetch(`${BASE_URL}/api/v1/tickets/sla/conformidade`, {
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/sla-compliance`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -574,14 +703,86 @@ const statistics = {
       });
 
       if (!response.ok) {
-        throw new Error('Falha ao obter conformidade SLA');
+        throw new Error('Falha ao carregar conformidade com SLA');
       }
 
-      return await response.json();
+      return response.json();
     } catch (error) {
-      console.error('Erro ao buscar conformidade SLA:', error);
+      console.error('Erro ao buscar conformidade com SLA:', error);
       throw error;
     }
+  },
+
+  // Obter tempo médio de resolução por categoria com cache
+  getResolutionTime: async (token: string) => {
+    try {
+      // Verificar se o cache é válido
+      if (isCacheValid() && statsCache.resolutionTime) {
+        console.log('Usando cache para resolution time');
+        return statsCache.resolutionTime;
+      }
+      
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/resolution-time`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar tempo médio de resolução');
+      }
+
+      const data = await response.json();
+      
+      // Atualizar o cache
+      statsCache.resolutionTime = data;
+      if (!statsCache.lastUpdated) statsCache.lastUpdated = Date.now();
+      
+      return data;
+    } catch (error) {
+      console.error('Erro ao buscar tempo médio de resolução:', error);
+      throw error;
+    }
+  },
+
+  // Obter desempenho dos técnicos com cache
+  getTechnicianPerformance: async (token: string) => {
+    try {
+      // Verificar se o cache é válido
+      if (isCacheValid() && statsCache.technicianPerformance) {
+        console.log('Usando cache para technician performance');
+        return statsCache.technicianPerformance;
+      }
+      
+      const response = await fetch(`${BASE_URL}/api/v1/statistics/technician-performance`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar desempenho dos técnicos');
+      }
+
+      const data = await response.json();
+      
+      // Atualizar o cache
+      statsCache.technicianPerformance = data;
+      if (!statsCache.lastUpdated) statsCache.lastUpdated = Date.now();
+      
+      return data;
+    } catch (error) {
+      console.error('Erro ao buscar desempenho dos técnicos:', error);
+      throw error;
+    }
+  },
+  
+  // Método para forçar a invalidação do cache
+  invalidateStatsCache: () => {
+    invalidateCache();
+    console.log('Cache de estatísticas invalidado');
   }
 };
 
@@ -616,6 +817,9 @@ const users = {
       throw new Error('Falha ao criar usuário');
     }
 
+    // Invalidar cache após criar usuário
+    invalidateCache();
+    
     return response.json();
   },
 
@@ -631,6 +835,9 @@ const users = {
       throw new Error('Falha ao buscar perfil do usuário');
     }
 
+    // Invalidar cache após atualizar usuário
+    invalidateCache();
+    
     return response.json();
   },
 
@@ -786,6 +993,9 @@ const sla = {
       throw new Error(`Erro ao salvar SLA (cat: ${categoriaId}, prioridade: ${prioridade})`);
     }
 
+    // Invalidar cache após criar SLA
+    invalidateCache();
+    
     return await response.json();
   },
 
@@ -826,6 +1036,9 @@ const sla = {
       throw new Error('Erro ao salvar SLAs em lote');
     }
 
+    // Invalidar cache após criar SLAs em lote
+    invalidateCache();
+    
     return response.text();
   },
 };
