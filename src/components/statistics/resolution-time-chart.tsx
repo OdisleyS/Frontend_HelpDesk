@@ -14,14 +14,14 @@ import {
 
 interface ResolutionTimeChartProps {
   data: {
-    category: string;
-    avgTime: number;
+    nome: string;
+    valor: number;
   }[];
 }
 
 export default function ResolutionTimeChart({ data }: ResolutionTimeChartProps) {
   // Ordenar dados pelo tempo médio (decrescente)
-  const sortedData = [...data].sort((a, b) => b.avgTime - a.avgTime);
+  const sortedData = [...data].sort((a, b) => b.valor - a.valor);
   
   // Personalização do tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -38,10 +38,16 @@ export default function ResolutionTimeChart({ data }: ResolutionTimeChartProps) 
     return null;
   };
 
+  // Converter dados para o formato esperado pelo componente de gráfico
+  const chartData = sortedData.map(item => ({
+    category: item.nome,
+    avgTime: item.valor
+  }));
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart
-        data={sortedData}
+        data={chartData}
         layout="vertical"
         margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
       >
