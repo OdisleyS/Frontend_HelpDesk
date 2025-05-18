@@ -1,5 +1,3 @@
-// src/app/gestor/estatisticas/page.tsx
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -17,8 +15,48 @@ import TechnicianPerformanceTable from '@/components/statistics/technician-perfo
 import SLAComplianceChart from '@/components/statistics/sla-compliance-chart';
 import CategoryDistributionChart from '@/components/statistics/category-distribution-chart';
 
-// Interface para os dados de estatísticas
+// Interface para os dados otimizados do dashboard
+interface DashboardStats {
+  totalChamados: number;
+  chamadosAbertos: number;
+  chamadosEmAnalise: number;
+  chamadosEmAtendimento: number;
+  chamadosAguardandoCliente: number;
+  chamadosResolvidos: number;
+  chamadosFechados: number;
+  chamadosBaixa: number;
+  chamadosMedia: number;
+  chamadosAlta: number;
+  slaConformidade: number;
+  usuariosAtivos: number;
+}
+
+// Interface para tempo médio de resolução por categoria
+interface ResolutionTime {
+  nome: string;
+  valor: number;
+}
+
+// Interface para desempenho de técnico
+interface TechnicianPerformance {
+  nome: string;
+  atribuidos: number;
+  resolvidos: number;
+  taxa: string;
+  avgHours: number;
+  classificacao: string;
+}
+
+// Interface para categoria distribuição
+interface CategoryDistributionItem {
+  nome: string;
+  quantidade: number;
+  percentual: number;
+}
+
+// Interface para o objeto de estatísticas consolidado
 interface StatsData {
+  dashboardStats: DashboardStats;
   byStatus: {
     ABERTO: number;
     EM_ANALISE: number;
@@ -35,18 +73,8 @@ interface StatsData {
   byCategory: {
     [key: string]: number;
   };
-  byTechnician: {
-    name: string;
-    assigned: number;
-    resolved: number;
-    resolutionRate: string;
-    avgResolutionTime: number;
-    classification: string;
-  }[];
-  resolutionTimes: {
-    nome: string;
-    valor: number;
-  }[];
+  byTechnician: TechnicianPerformance[];
+  resolutionTimes: ResolutionTime[];
   slaCompliance: {
     withinSLA: number;
     outsideSLA: number;
@@ -67,110 +95,66 @@ export default function GestorEstatisticasPage() {
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState('thisMonth'); // 'thisWeek', 'thisMonth', 'lastMonth', 'thisYear'
   const [reportType, setReportType] = useState('all'); // 'all', 'status', 'priority', 'sla', 'technicians'
-  
-  // Carregar dados estatísticos
+
+  // Carregar dados estatísticos otimizados
   useEffect(() => {
     const loadStats = async () => {
       if (!token) return;
       setIsLoading(true);
       setError(null);
-      
+
       try {
-        // Buscar todas as categorias
-        const categories = await api.categories.list(token);
-        
-        // Buscar chamados por status
-        const openTickets = await api.tickets.listByStatus('ABERTO', token);
-        const inAnalysisTickets = await api.tickets.listByStatus('EM_ANALISE', token);
-        const inProgressTickets = await api.tickets.listByStatus('EM_ATENDIMENTO', token);
-        const waitingClientTickets = await api.tickets.listByStatus('AGUARDANDO_CLIENTE', token);
-        const resolvedTickets = await api.tickets.listByStatus('RESOLVIDO', token);
-        const closedTickets = await api.tickets.listByStatus('FECHADO', token);
-        
-        // Combinar todos os chamados para análise
-        const allTickets = [
-          ...openTickets, 
-          ...inAnalysisTickets, 
-          ...inProgressTickets, 
-          ...waitingClientTickets,
-          ...resolvedTickets,
-          ...closedTickets
-        ];
+        // Carregar dados em paralelo para melhor performance
+        const [
+          dashboardStats,
+          resolutionTimes,
+          technicianPerformance,
+          categoryDistribution
+        ] = await Promise.all([
+          api.statistics.getDashboardStats(token),
+          api.statistics.getResolutionTime(token),
+          api.statistics.getTechnicianPerformance(token),
+          api.statistics.getCategoryDistribution(token)
+        ]);
 
-        // Contar por prioridade
-        const byPriority = {
-          BAIXA: 0,
-          MEDIA: 0,
-          ALTA: 0
-        };
-        
-        // Contar por categoria
-        const byCategory: { [key: string]: number } = {};
-        categories.forEach((cat: any) => {
-          byCategory[cat.nome] = 0;
-        });
-        
-        // Processar todos os chamados para estatísticas
-        allTickets.forEach((ticket: any) => {
-          // Contar por prioridade
-          if (ticket.prioridade && byPriority.hasOwnProperty(ticket.prioridade)) {
-            byPriority[ticket.prioridade as keyof typeof byPriority]++;
-          }
-          
-          // Contar por categoria
-          if (ticket.categoria && byCategory.hasOwnProperty(ticket.categoria)) {
-            byCategory[ticket.categoria]++;
-          }
+        // Preparar dados da categoria
+        const categoryData: { [key: string]: number } = {};
+        categoryDistribution.forEach((item: CategoryDistributionItem) => {
+          categoryData[item.nome] = item.quantidade;
         });
 
-        // NOVAS CHAMADAS À API PARA OS DADOS ANTES AUSENTES
-        
-        // 1. Obter conformidade de SLA
-        const slaCompliancePercentage = await api.tickets.getSlaConformidade(token);
-        const withinSLA = slaCompliancePercentage; // A porcentagem que está conforme
-        const outsideSLA = 100 - withinSLA; // A porcentagem que está fora
-
-        // 2. Obter tempo médio por categoria
-        const resolutionTimes = await api.tickets.getTempoMedioPorCategoria(token);
-        
-        // 3. Obter desempenho dos técnicos
-        const technicianData = await api.tickets.getDesempenhoTecnicos(token);
-        const byTechnician = technicianData.map(tech => ({
-          name: tech.nome,
-          assigned: tech.atribuídos,
-          resolved: tech.resolvidos,
-          resolutionRate: tech.taxaResolucao,
-          avgResolutionTime: tech.mediaHoras,
-          classification: tech.classificacao
-        }));
-
-        // Montar objeto de estatísticas
+        // Agora usamos os dados reais do backend para construir o objeto de estatísticas
         const stats: StatsData = {
+          dashboardStats,
           byStatus: {
-            ABERTO: openTickets.length,
-            EM_ANALISE: inAnalysisTickets.length,
-            EM_ATENDIMENTO: inProgressTickets.length,
-            AGUARDANDO_CLIENTE: waitingClientTickets.length,
-            RESOLVIDO: resolvedTickets.length,
-            FECHADO: closedTickets.length
+            ABERTO: dashboardStats.chamadosAbertos,
+            EM_ANALISE: dashboardStats.chamadosEmAnalise,
+            EM_ATENDIMENTO: dashboardStats.chamadosEmAtendimento,
+            AGUARDANDO_CLIENTE: dashboardStats.chamadosAguardandoCliente,
+            RESOLVIDO: dashboardStats.chamadosResolvidos,
+            FECHADO: dashboardStats.chamadosFechados,
           },
-          byPriority,
-          byCategory,
-          byTechnician,
+          byPriority: {
+            BAIXA: dashboardStats.chamadosBaixa,
+            MEDIA: dashboardStats.chamadosMedia,
+            ALTA: dashboardStats.chamadosAlta,
+          },
+          byCategory: categoryData,
+          byTechnician: technicianPerformance,
           resolutionTimes,
           slaCompliance: {
-            withinSLA,
-            outsideSLA
+            withinSLA: dashboardStats.slaConformidade,
+            outsideSLA: 100 - dashboardStats.slaConformidade
           },
           totals: {
-            open: openTickets.length,
-            inProgress: inAnalysisTickets.length + inProgressTickets.length + waitingClientTickets.length,
-            resolved: resolvedTickets.length,
-            closed: closedTickets.length,
-            total: allTickets.length
+            open: dashboardStats.chamadosAbertos,
+            inProgress: dashboardStats.chamadosEmAtendimento,
+            resolved: dashboardStats.chamadosResolvidos,
+            closed: dashboardStats.chamadosFechados,
+            total: dashboardStats.totalChamados
           }
         };
-        
+
         setStatsData(stats);
       } catch (error) {
         console.error('Erro ao carregar estatísticas:', error);
@@ -179,7 +163,7 @@ export default function GestorEstatisticasPage() {
         setIsLoading(false);
       }
     };
-    
+
     loadStats();
   }, [token, dateRange]);
 
@@ -198,7 +182,7 @@ export default function GestorEstatisticasPage() {
             Análise de desempenho e métricas de atendimento do help desk
           </p>
         </div>
-        
+
         <div className="flex flex-wrap gap-2">
           <select
             value={dateRange}
@@ -211,7 +195,7 @@ export default function GestorEstatisticasPage() {
             <option value="thisYear">Este Ano</option>
             <option value="all">Todo o Período</option>
           </select>
-          
+
           <Button onClick={exportReport} variant="outline">
             <svg className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
