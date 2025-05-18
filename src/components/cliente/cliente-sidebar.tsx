@@ -51,7 +51,7 @@ export default function ClienteSidebar() {
 
       try {
         const notifications = await api.notifications.list(token);
-        const unreadNotifications = notifications.filter(n => !n.lida);
+        const unreadNotifications = notifications.filter((n: { lida: any; }) => !n.lida);
         setUnreadCount(unreadNotifications.length);
       } catch (error) {
         console.error('Erro ao carregar notificações não lidas:', error);

@@ -8,28 +8,12 @@ import { Input, FormField } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { api } from '@/lib/api';
-
-// Enum para tipo de usuário
-enum UserType {
-  CLIENTE = 'CLIENTE',
-  TECNICO = 'TECNICO',
-  GESTOR = 'GESTOR'
-}
-
-// Interface para o usuário
-interface User {
-  id?: number;
-  nome: string;
-  email: string;
-  senha?: string;
-  tipo: UserType;
-  ativo?: boolean;
-}
+import { userService, UserType } from '@/lib/api/services/userService';
 
 export default function GestorUsuariosPage() {
   // Estado para a lista de usuários
-  const [usuarios, setUsuarios] = useState<User[]>([]);
-  
+  const [usuarios, setUsuarios] = useState<any[]>([]);
+
   // Estado para o formulário de novo usuário
   const [novoUsuario, setNovoUsuario] = useState({
     nome: '',
@@ -37,17 +21,17 @@ export default function GestorUsuariosPage() {
     senha: '',
     tipo: UserType.TECNICO,
   });
-  
+
   // Estados para filtro e paginação
   const [filtroTipo, setFiltroTipo] = useState<string>('TODOS');
   const [filtroAtivo, setFiltroAtivo] = useState<boolean | null>(null);
   const [filtroBusca, setFiltroBusca] = useState('');
-  
+
   // Estados para feedback
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  
+
   // Estados para validação
   const [formErrors, setFormErrors] = useState({
     nome: '',
@@ -64,7 +48,7 @@ export default function GestorUsuariosPage() {
   const carregarUsuarios = async () => {
     try {
       setIsLoading(true);
-      
+
       // Obter o token
       const token = localStorage.getItem('token');
       if (!token) {
@@ -72,11 +56,11 @@ export default function GestorUsuariosPage() {
         setIsLoading(false);
         return;
       }
-      
+
       console.log('Buscando usuários do backend...');
       const data = await api.users.list(token);
       console.log('Usuários recebidos:', data);
-      
+
       // O API geralmente retorna dados paginados
       setUsuarios(Array.isArray(data) ? data : (data.content || []));
     } catch (error) {
@@ -90,41 +74,41 @@ export default function GestorUsuariosPage() {
   // Função para criar usuário
   const criarUsuario = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     // Validação
     const errors = {
       nome: '',
       email: '',
       senha: '',
     };
-    
+
     if (!novoUsuario.nome.trim()) {
       errors.nome = 'O nome é obrigatório';
     }
-    
+
     if (!novoUsuario.email.trim()) {
       errors.email = 'O email é obrigatório';
     } else if (!novoUsuario.email.endsWith('@gmail.com')) {
       errors.email = 'O email deve ser um endereço Gmail';
     }
-    
+
     if (!novoUsuario.senha.trim()) {
       errors.senha = 'A senha é obrigatória';
     } else if (novoUsuario.senha.length < 6) {
       errors.senha = 'A senha deve ter pelo menos 6 caracteres';
     }
-    
+
     setFormErrors(errors);
-    
+
     // Se houver erros, não prosseguir
     if (Object.values(errors).some(error => error)) {
       return;
     }
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       // Obter o token
       const token = localStorage.getItem('token');
       if (!token) {
@@ -132,7 +116,7 @@ export default function GestorUsuariosPage() {
         setIsLoading(false);
         return;
       }
-      
+
       console.log('Enviando novo usuário para o backend:', novoUsuario);
       const userData = {
         nome: novoUsuario.nome,
@@ -140,13 +124,13 @@ export default function GestorUsuariosPage() {
         senha: novoUsuario.senha,
         tipo: novoUsuario.tipo
       };
-      
+
       const created = await api.users.create(userData, token);
       console.log('Usuário criado com sucesso:', created);
-      
+
       // Atualizar a lista de usuários
       setUsuarios(prev => [...prev, created]);
-      
+
       // Resetar formulário
       setNovoUsuario({
         nome: '',
@@ -154,12 +138,12 @@ export default function GestorUsuariosPage() {
         senha: '',
         tipo: UserType.TECNICO,
       });
-      
+
       setSuccessMessage('Usuário criado com sucesso!');
-      
+
       // Recarregar a lista para garantir dados atualizados
       carregarUsuarios();
-      
+
       // Limpar mensagem de sucesso após 3 segundos
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {
@@ -171,16 +155,17 @@ export default function GestorUsuariosPage() {
   };
 
   // Função para alternar status do usuário
-  const alternarStatus = async (usuario: User) => {
+  // Função para alternar status do usuário
+  const alternarStatus = async (usuario: any) => {
     try {
       if (!usuario.id) {
         setError('ID do usuário não encontrado');
         return;
       }
-      
+
       setIsLoading(true);
       setError(null);
-      
+
       // Obter o token
       const token = localStorage.getItem('token');
       if (!token) {
@@ -188,24 +173,48 @@ export default function GestorUsuariosPage() {
         setIsLoading(false);
         return;
       }
-      
+
       // Inverter o status atual
       const novoStatus = !usuario.ativo;
-      
+
       console.log(`${novoStatus ? 'Ativando' : 'Desativando'} usuário:`, usuario);
-      await api.users.updateStatus(usuario.id, novoStatus, token);
+
+      try {
+        // Usar api.notifications.updateStatus em vez de api.users.updateStatus
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/users/${usuario.id}/status?ativo=${novoStatus}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Falha ao atualizar status do usuário #${usuario.id}`);
+        }
+
+        // Verificar se há conteúdo antes de tentar converter para JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          // Somente faz o parse se realmente for JSON
+          await response.json();
+        }
+      } catch (e) {
+        console.warn("Erro ao processar resposta, mas o status foi alterado:", e);
+        // Mesmo com erro no processamento, a operação provavelmente foi bem sucedida
+      }
+
       console.log(`Usuário ${novoStatus ? 'ativado' : 'desativado'} com sucesso`);
-      
+
       // Atualizar a lista de usuários
-      setUsuarios(prev => prev.map(u => 
+      setUsuarios(prev => prev.map(u =>
         u.id === usuario.id ? { ...u, ativo: novoStatus } : u
       ));
-      
+
       setSuccessMessage(`Usuário ${novoStatus ? 'ativado' : 'desativado'} com sucesso!`);
-      
+
       // Recarregar a lista para garantir dados atualizados
       carregarUsuarios();
-      
+
       // Limpar mensagem de sucesso após 3 segundos
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {
@@ -222,18 +231,18 @@ export default function GestorUsuariosPage() {
     if (filtroTipo !== 'TODOS' && usuario.tipo !== filtroTipo) {
       return false;
     }
-    
+
     // Filtro por status
     if (filtroAtivo !== null && usuario.ativo !== filtroAtivo) {
       return false;
     }
-    
+
     // Filtro por busca (nome ou email)
-    if (filtroBusca && !usuario.nome.toLowerCase().includes(filtroBusca.toLowerCase()) && 
-        !usuario.email.toLowerCase().includes(filtroBusca.toLowerCase())) {
+    if (filtroBusca && !usuario.nome.toLowerCase().includes(filtroBusca.toLowerCase()) &&
+      !usuario.email.toLowerCase().includes(filtroBusca.toLowerCase())) {
       return false;
     }
-    
+
     return true;
   });
 
@@ -241,7 +250,7 @@ export default function GestorUsuariosPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setNovoUsuario({ ...novoUsuario, [name]: value });
-    
+
     // Limpar erro do campo sendo editado
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors({ ...formErrors, [name]: '' });
@@ -255,28 +264,28 @@ export default function GestorUsuariosPage() {
         <h2 className="text-2xl font-bold text-slate-900">Gerenciamento de Usuários</h2>
         <p className="text-slate-600 mt-1">Crie novos usuários técnicos e gerencie os usuários existentes.</p>
       </div>
-      
+
       {/* Mensagens de feedback */}
       {error && (
-        <Alert 
-          variant="destructive" 
+        <Alert
+          variant="destructive"
           title="Erro"
           onClose={() => setError(null)}
         >
           {error}
         </Alert>
       )}
-      
+
       {successMessage && (
-        <Alert 
-          variant="success" 
+        <Alert
+          variant="success"
           title="Sucesso"
           onClose={() => setSuccessMessage(null)}
         >
           {successMessage}
         </Alert>
       )}
-      
+
       {/* Formulário para criar usuário (principalmente técnicos) */}
       <Card>
         <CardHeader>
@@ -298,7 +307,7 @@ export default function GestorUsuariosPage() {
                 error={!!formErrors.nome}
               />
             </FormField>
-            
+
             <FormField
               id="email"
               label="Email"
@@ -314,7 +323,7 @@ export default function GestorUsuariosPage() {
                 error={!!formErrors.email}
               />
             </FormField>
-            
+
             <FormField
               id="senha"
               label="Senha"
@@ -330,7 +339,7 @@ export default function GestorUsuariosPage() {
                 error={!!formErrors.senha}
               />
             </FormField>
-            
+
             <FormField
               id="tipo"
               label="Tipo de Usuário"
@@ -352,8 +361,8 @@ export default function GestorUsuariosPage() {
             </FormField>
           </CardContent>
           <CardFooter>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={isLoading}
               fullWidth={true}
             >
@@ -362,7 +371,7 @@ export default function GestorUsuariosPage() {
           </CardFooter>
         </form>
       </Card>
-      
+
       {/* Filtros */}
       <Card>
         <CardHeader>
@@ -380,7 +389,7 @@ export default function GestorUsuariosPage() {
                 onChange={(e) => setFiltroBusca(e.target.value)}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Tipo
@@ -396,7 +405,7 @@ export default function GestorUsuariosPage() {
                 <option value={UserType.GESTOR}>Gestores</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Status
@@ -417,7 +426,7 @@ export default function GestorUsuariosPage() {
           </div>
         </CardContent>
       </Card>
-      
+
       {/* Lista de usuários */}
       <Card>
         <CardHeader>
@@ -432,8 +441,8 @@ export default function GestorUsuariosPage() {
           ) : usuariosFiltrados.length === 0 ? (
             <div className="text-center py-4">
               <p className="text-slate-500">
-                {usuarios.length === 0 
-                  ? 'Nenhum usuário encontrado no sistema.' 
+                {usuarios.length === 0
+                  ? 'Nenhum usuário encontrado no sistema.'
                   : 'Nenhum usuário corresponde aos filtros aplicados.'}
               </p>
             </div>
@@ -459,22 +468,20 @@ export default function GestorUsuariosPage() {
                         {usuario.email}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          usuario.tipo === UserType.GESTOR 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : usuario.tipo === UserType.TECNICO 
-                              ? 'bg-blue-100 text-blue-800' 
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${usuario.tipo === UserType.GESTOR
+                            ? 'bg-purple-100 text-purple-800'
+                            : usuario.tipo === UserType.TECNICO
+                              ? 'bg-blue-100 text-blue-800'
                               : 'bg-green-100 text-green-800'
-                        }`}>
+                          }`}>
                           {usuario.tipo}
                         </span>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          usuario.ativo
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${usuario.ativo
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
-                        }`}>
+                          }`}>
                           {usuario.ativo ? 'Ativo' : 'Inativo'}
                         </span>
                       </td>

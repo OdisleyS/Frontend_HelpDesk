@@ -1,4 +1,4 @@
-// src/api/lib/services/userService.ts
+// src/lib/api/services/userService.ts
 
 import { api } from '@/lib/api';
 
@@ -53,6 +53,37 @@ export const userService = {
       throw new Error('Usuário não autenticado');
     }
     
-    await api.users.updateStatus(id, active, token);
+    // A função correta está em api.notifications.updateStatus
+    await api.notifications.updateStatus(id, active, token);
   },
+  
+  // Obter o nome do usuário
+  getName: async (): Promise<string> => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Usuário não autenticado');
+    }
+    
+    return api.users.getName(token);
+  },
+  
+  // Atualizar nome do usuário
+  updateName: async (name: string): Promise<void> => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Usuário não autenticado');
+    }
+    
+    await api.users.updateName(name, token);
+  },
+  
+  // Atualizar senha do usuário
+  updatePassword: async (senhaAtual: string, novaSenha: string): Promise<void> => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Usuário não autenticado');
+    }
+    
+    await api.users.updatePassword(senhaAtual, novaSenha, token);
+  }
 };

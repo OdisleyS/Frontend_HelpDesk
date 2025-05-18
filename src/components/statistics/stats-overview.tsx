@@ -33,6 +33,13 @@ export default function StatsOverview({ data }: StatsOverviewProps) {
     }
   };
 
+  // Classificação da taxa de resolução
+  const getResolutionRateClassification = (rate: number) => {
+    if (rate > 70) return 'Excelente';
+    if (rate > 40) return 'Regular';
+    return 'Baixa';
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
       <Card>
@@ -92,7 +99,7 @@ export default function StatsOverview({ data }: StatsOverviewProps) {
                 {resolutionRate}%
               </span>
               <span className={`ml-2 text-xs px-2 py-1 rounded-full ${getColorClass(resolutionRate, 'bg')} ${getColorClass(resolutionRate, 'text')}`}>
-                {resolutionRate > 70 ? 'Excelente' : resolutionRate > 40 ? 'Regular' : 'Baixa'}
+                {getResolutionRateClassification(resolutionRate)}
               </span>
             </div>
             <span className="text-xs text-slate-500 mt-1">
