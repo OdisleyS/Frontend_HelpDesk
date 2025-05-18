@@ -11,7 +11,7 @@ import { Alert } from '@/components/ui/alert';
 import { api } from '@/lib/api';
 
 export default function TecnicoPerfilPage() {
-  const { user, token } = useAuth();
+  const { user, token, updateUserName, updateUserPassword, error, clearError, successMessage, clearSuccess } = useAuth();
   
   const [formData, setFormData] = useState({
     nome: user?.nome || '',
@@ -36,34 +36,29 @@ export default function TecnicoPerfilPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPrefs, setIsLoadingPrefs] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [prefsSuccessMessage, setPrefsSuccessMessage] = useState('');
   const [prefsErrorMessage, setPrefsErrorMessage] = useState('');
 
-  // Carregar preferências do usuário
+  // Carregar nome atualizado e preferências do usuário
   useEffect(() => {
-    const loadPreferences = async () => {
+    const loadUserProfile = async () => {
       if (!token) return;
       
-      setIsLoadingPrefs(true);
-      
       try {
-        const data = await api.notifications.getPreferences(token);
-        setNotificationPreferences({
-          notificarAtualizacao: data.notificarAtualizacao,
-          notificarFechamento: data.notificarFechamento,
-          notificarPorEmail: data.notificarPorEmail,
-        });
+        // Carregar nome atualizado
+        const nome = await api.users.getName(token);
+        setFormData(prev => ({ ...prev, nome }));
+        
+        // Carregar preferências
+        const prefs = await api.notifications.getPreferences(token);
+        setNotificationPreferences(prefs);
       } catch (error) {
-        console.error('Erro ao carregar preferências:', error);
-        setPrefsErrorMessage('Não foi possível carregar suas preferências de notificação.');
-      } finally {
-        setIsLoadingPrefs(false);
+        console.error('Erro ao carregar dados do perfil:', error);
       }
     };
     
-    loadPreferences();
+    loadUserProfile();
   }, [token]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,6 +72,8 @@ export default function TecnicoPerfilPage() {
     
     // Limpar mensagem de erro quando o usuário começa a editar o formulário novamente
     if (errorMessage) setErrorMessage('');
+    if (error) clearError();
+    if (successMessage) clearSuccess();
   };
 
   const validateForm = () => {
@@ -113,6 +110,30 @@ export default function TecnicoPerfilPage() {
     return !Object.values(errors).some(error => error);
   };
 
+  // Método para atualizar o nome do técnico
+  const updateName = async () => {
+    if (!token || !formData.nome.trim()) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // Chama a API para atualizar o nome
+      await api.users.updateName(formData.nome, token);
+      
+      // Atualiza o estado local do usuário (se estiver usando o contexto de autenticação)
+      if (updateUserName) {
+        await updateUserName(formData.nome);
+      }
+    
+    } catch (err) {
+      const apiError = err as any;
+      setErrorMessage(apiError.message || 'Falha ao atualizar o nome. Tente novamente.');
+      console.error('Erro ao atualizar nome:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
@@ -121,18 +142,17 @@ export default function TecnicoPerfilPage() {
     }
     
     setIsLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
     
     try {
-      // Simulação de atualização de perfil
-      // Em um ambiente real, usaríamos algo como:
-      // await api.users.updateProfile(formData);
+      // Atualizar nome (caso tenha mudado)
+      if (formData.nome !== user?.nome) {
+        await updateName();
+      }
       
-      // Simulação de tempo de processamento
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setSuccessMessage('Perfil atualizado com sucesso!');
+      // Atualizar senha (caso tenha sido preenchida)
+      if (formData.novaSenha && formData.senhaAtual) {
+        await updateUserPassword(formData.senhaAtual, formData.novaSenha);
+      }
       
       // Limpar campos de senha
       setFormData(prev => ({
@@ -142,7 +162,7 @@ export default function TecnicoPerfilPage() {
         confirmarSenha: '',
       }));
     } catch (error) {
-      setErrorMessage('Erro ao atualizar perfil. Verifique suas informações e tente novamente.');
+      console.error('Erro ao atualizar perfil:', error);
     } finally {
       setIsLoading(false);
     }
@@ -192,7 +212,7 @@ export default function TecnicoPerfilPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900">Meu Perfil</h2>
-        <p className="text-slate-600 mt-1">Gerencie suas informações pessoais e preferências de notificação.</p>
+        <p className="text-slate-600 mt-1">Gerencie suas informações pessoais e preferências.</p>
       </div>
       
       {/* Cartão de informações do usuário */}
@@ -213,11 +233,21 @@ export default function TecnicoPerfilPage() {
               </Alert>
             )}
             
+            {error && (
+              <Alert 
+                variant="destructive" 
+                title="Erro"
+                onClose={clearError}
+              >
+                {error.message}
+              </Alert>
+            )}
+            
             {successMessage && (
               <Alert 
                 variant="success" 
                 title="Sucesso"
-                onClose={() => setSuccessMessage('')}
+                onClose={clearSuccess}
               >
                 {successMessage}
               </Alert>
@@ -365,7 +395,7 @@ export default function TecnicoPerfilPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-medium">Atualizações de chamados</h4>
-                <p className="text-sm text-slate-500">Receba notificações quando houver atualizações nos chamados que você atende</p>
+                <p className="text-sm text-slate-500">Receba notificações quando houver atualizações em chamados</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
@@ -381,8 +411,8 @@ export default function TecnicoPerfilPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-medium">Notificações de novos chamados</h4>
-                <p className="text-sm text-slate-500">Receba alertas quando novos chamados com alta prioridade forem abertos</p>
+                <h4 className="font-medium">Fechamento de chamados</h4>
+                <p className="text-sm text-slate-500">Receba notificações quando chamados forem fechados</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
@@ -416,8 +446,8 @@ export default function TecnicoPerfilPage() {
         </CardContent>
       </Card>
       
-      <Alert variant="info" title="Dicas para técnicos">
-        Mantenha os clientes informados sobre o progresso dos chamados. Documentar suas ações nos comentários ajuda a manter a transparência e facilita o acompanhamento posterior do histórico de atendimento.
+      <Alert variant="info" title="Segurança da Conta">
+        Recomendamos alterar sua senha regularmente para manter sua conta segura. Nunca compartilhe suas credenciais com terceiros.
       </Alert>
     </div>
   );

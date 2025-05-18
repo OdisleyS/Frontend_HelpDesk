@@ -37,3 +37,15 @@ export interface ApiError {
   message: string;
   status?: number;
 }
+
+export interface UsersApi {
+  list: (token: string) => Promise<any>;
+  create: (data: any, token: string) => Promise<any>; 
+  getProfile: (token: string) => Promise<any>;
+  updateProfile: (data: any, token: string) => Promise<any>;
+  
+  // Novas funções:
+  updateName: (nome: string, token: string) => Promise<any>;
+  updatePassword: (senhaAtual: string, novaSenha: string, token: string) => Promise<any>;
+  getName: (token: string) => Promise<string>;
+}

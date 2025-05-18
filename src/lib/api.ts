@@ -619,20 +619,149 @@ const users = {
     return response.json();
   },
 
-  updateStatus: async (id: number, ativo: boolean, token: string) => {
-    const response = await fetch(`${BASE_URL}/api/v1/admin/users/${id}/status?ativo=${ativo}`, {
-      method: 'PUT',
+  getProfile: async (token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/usuarios/perfil`, {
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Falha ao atualizar status do usuário #${id}`);
+      throw new Error('Falha ao buscar perfil do usuário');
     }
 
     return response.json();
   },
+
+  updateProfile: async (data: any, token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/usuarios/perfil`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Falha ao atualizar perfil');
+    }
+
+    return response.text();
+  },
+
+  updateName: async (nome: string, token: string): Promise<any> => {
+    try {
+      // URL atualizada para o novo endpoint
+      const response = await fetch(`${BASE_URL}/api/v1/usuarios/nome`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ nome })
+      });
+
+      if (!response.ok) {
+        // Log adicional para debug
+        console.error(`Erro ao atualizar nome. Status: ${response.status}`);
+        try {
+          const errorText = await response.text();
+          console.error('Resposta do erro:', errorText);
+        } catch (e) {
+          console.error('Não foi possível ler o corpo da resposta de erro');
+        }
+
+        const errorData = await response.json().catch(() => ({}));
+        throw {
+          message: errorData.message || `Erro ao atualizar nome. Status: ${response.status}`,
+          status: response.status
+        };
+      }
+
+      return {};
+    } catch (error) {
+      console.error('Erro ao atualizar nome:', error);
+      throw error;
+    }
+  },
+
+  // Função para obter o nome do usuário atual
+  getName: async (token: string): Promise<string> => {
+    try {
+      // URL atualizada para o novo endpoint
+      const response = await fetch(`${BASE_URL}/api/v1/usuarios/nome`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        // Log adicional para debug
+        console.error(`Erro ao obter nome. Status: ${response.status}`);
+        try {
+          const errorText = await response.text();
+          console.error('Resposta do erro:', errorText);
+        } catch (e) {
+          console.error('Não foi possível ler o corpo da resposta de erro');
+        }
+
+        const errorData = await response.json().catch(() => ({}));
+        throw {
+          message: errorData.message || `Erro ao obter nome. Status: ${response.status}`,
+          status: response.status
+        };
+      }
+
+      const data = await response.json();
+      return data.nome;
+    } catch (error) {
+      console.error('Erro ao obter nome:', error);
+      throw error;
+    }
+  },
+
+  // Função para atualizar a senha do usuário
+  updatePassword: async (senhaAtual: string, novaSenha: string, token: string): Promise<any> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/usuarios/senha`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          senhaAtual,
+          novaSenha
+        })
+      });
+
+      if (!response.ok) {
+        // Log adicional para debug
+        console.error(`Erro ao atualizar senha. Status: ${response.status}`);
+        try {
+          const errorText = await response.text();
+          console.error('Resposta do erro:', errorText);
+        } catch (e) {
+          console.error('Não foi possível ler o corpo da resposta de erro');
+        }
+
+        const errorData = await response.json().catch(() => ({}));
+        throw {
+          message: errorData.message || `Erro ao atualizar senha. Status: ${response.status}`,
+          status: response.status
+        };
+      }
+
+      return {};
+    } catch (error) {
+      console.error('Erro ao atualizar senha:', error);
+      throw error;
+    }
+  }
 };
 
 // Funções de SLA
@@ -738,32 +867,50 @@ const notifications = {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
-      },
+      }
     });
 
     if (!response.ok) {
-      throw new Error('Falha ao buscar preferências de notificação');
+      throw new Error('Falha ao carregar preferências de notificação');
     }
 
     return response.json();
   },
 
-  updatePreferences: async (prefs: any, token: string) => {
+
+  // Nova função para atualizar preferências de notificação
+  updatePreferences: async (preferences: any, token: string) => {
     const response = await fetch(`${BASE_URL}/api/v1/usuarios/preferencias`, {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify(prefs),
+      body: JSON.stringify(preferences),
     });
 
     if (!response.ok) {
       throw new Error('Falha ao atualizar preferências de notificação');
     }
 
-    return;
+    return response.text();
   },
+
+  updateStatus: async (id: number, ativo: boolean, token: string): Promise<any> => {
+    const response = await fetch(`${BASE_URL}/api/v1/admin/users/${id}/status?ativo=${ativo}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Falha ao atualizar status do usuário #${id}`);
+    }
+
+    return response.json();
+  },
+
 };
 
 export const api = {
