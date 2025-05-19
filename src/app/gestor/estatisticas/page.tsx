@@ -1,3 +1,5 @@
+// src/app/gestor/estatisticas/page.tsx
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,6 +16,7 @@ import ResolutionTimeChart from '@/components/statistics/resolution-time-chart';
 import TechnicianPerformanceTable from '@/components/statistics/technician-performance-table';
 import SLAComplianceChart from '@/components/statistics/sla-compliance-chart';
 import CategoryDistributionChart from '@/components/statistics/category-distribution-chart';
+import ReportExporter from '@/components/statistics/report-exporter';
 
 // Interface para os dados otimizados do dashboard
 interface DashboardStats {
@@ -167,9 +170,16 @@ export default function GestorEstatisticasPage() {
     loadStats();
   }, [token, dateRange]);
 
-  // Função para exportar relatório
-  const exportReport = () => {
-    alert('Funcionalidade de exportação de relatório será implementada em breve!');
+  // Função para obter o texto do período selecionado
+  const getPeriodText = () => {
+    switch (dateRange) {
+      case 'thisWeek': return 'Esta Semana';
+      case 'thisMonth': return 'Este Mês';
+      case 'lastMonth': return 'Mês Anterior';
+      case 'thisYear': return 'Este Ano';
+      case 'all': return 'Todo o Período';
+      default: return 'Este Mês';
+    }
   };
 
   return (
@@ -196,12 +206,13 @@ export default function GestorEstatisticasPage() {
             <option value="all">Todo o Período</option>
           </select>
 
-          <Button onClick={exportReport} variant="outline">
-            <svg className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Exportar Relatório
-          </Button>
+          {/* Substituir o antigo botão por nosso novo componente */}
+          {statsData && (
+            <ReportExporter 
+              statsData={statsData} 
+              period={getPeriodText()}
+            />
+          )}
         </div>
       </div>
 
