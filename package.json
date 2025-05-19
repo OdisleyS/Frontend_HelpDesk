@@ -13,11 +13,16 @@
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",
+    "file-saver": "^2.0.5",
+    "html2pdf.js": "^0.10.3",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
     "jwt-decode": "^4.0.0",
     "next": "14.1.0",
     "react": "^18",
     "react-dom": "^18",
-    "recharts": "^2.15.3"
+    "recharts": "^2.15.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",

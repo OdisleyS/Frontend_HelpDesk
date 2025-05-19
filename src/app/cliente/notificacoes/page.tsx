@@ -19,11 +19,12 @@ interface Notification {
 // Interface estendida com propriedades adicionais
 interface ExtendedNotification extends Notification {
   isExpanded: boolean;
-  chamadoId?: number; // ID do chamado relacionado à notificação, se houver
-  tecnicoNome?: string; // Nome do técnico que assumiu o chamado, se houver
-  statusNovo?: string; // Novo status do chamado, se houver
-  tituloChamado?: string; // Título do chamado, se houver
-  prioridade?: string; // Prioridade do chamado, se houver
+  chamadoId?: number;
+  tecnicoNome?: string;
+  statusNovo?: string;
+  tituloChamado?: string;
+  prioridade?: string;
+  mensagemLimpa: string; // Nova propriedade para a mensagem sem metadados
 }
 
 // Função para formatar a data
@@ -40,7 +41,7 @@ const formatDate = (dateString: string): string => {
 
 // Função para determinar o tipo de notificação baseado no conteúdo
 const getNotificationType = (message: string): 'status_change' | 'comment' | 'assignment' | 'system' => {
-  if (message.includes('técnico assumiu')) {
+  if (message.includes('técnico') && (message.includes('assumiu') || message.includes('atribuído'))) {
     return 'assignment';
   } else if (message.includes('atualizado para')) {
     return 'status_change';
@@ -51,7 +52,30 @@ const getNotificationType = (message: string): 'status_change' | 'comment' | 'as
   }
 };
 
-  // Função para extrair o ID do chamado da mensagem, se presente
+// Função para extrair metadados e limpar a mensagem
+const extractMetadataAndCleanMessage = (message: string): {
+  chamadoId?: number;
+  tituloChamado?: string;
+  tecnicoNome?: string;
+  mensagemLimpa: string;
+} => {
+  // Extrair os metadados usando expressões regulares
+  const chamadoMatch = message.match(/\[CHAMADO:#(\d+)\]/i);
+  const tituloMatch = message.match(/\[TITULO:([^\]]+)\]/i);
+  const tecnicoMatch = message.match(/\[TECNICO:([^\]]+)\]/i);
+  
+  // Remover todos os metadados da mensagem
+  const cleanMessage = message.replace(/\[(CHAMADO|TITULO|TECNICO):[^\]]+\]/gi, '').trim();
+  
+  return {
+    chamadoId: chamadoMatch ? parseInt(chamadoMatch[1], 10) : undefined,
+    tituloChamado: tituloMatch ? tituloMatch[1] : undefined,
+    tecnicoNome: tecnicoMatch ? tecnicoMatch[1] : undefined,
+    mensagemLimpa: cleanMessage
+  };
+};
+
+// Função para extrair o ID do chamado da mensagem
 const extractTicketId = (message: string): number | undefined => {
   const matches = message.match(/#(\d+)/);
   if (matches && matches.length > 1) {
@@ -60,12 +84,13 @@ const extractTicketId = (message: string): number | undefined => {
   return undefined;
 };
 
-// Função para extrair o nome do técnico da mensagem, se presente
+// Função aprimorada para extrair o nome do técnico da mensagem
 const extractTechnicianName = (message: string): string | undefined => {
-  // Padrões comuns para menção de técnicos
+  // Padrões melhorados para capturar diferentes formatos de mensagem
   const patterns = [
+    /[Oo]\s+técnico\s+([A-Za-zÀ-ÖØ-öø-ÿ\s]+?)(?:\s+assumiu|\s+atribuiu|\s+foi designado|$)/i,
     /técnico\s+([A-Za-zÀ-ÖØ-öø-ÿ\s]+?)(?:\s+assumiu|\s+atribuiu|\s+foi designado|$)/i,
-    /([A-Za-zÀ-ÖØ-öø-ÿ\s]+?)(?:\s+assumiu o chamado|\s+atribuiu|\s+foi designado|$)/i
+    /([A-Za-zÀ-ÖØ-öø-ÿ\s]+?)\s+assumiu o chamado/i
   ];
   
   for (const pattern of patterns) {
@@ -79,7 +104,26 @@ const extractTechnicianName = (message: string): string | undefined => {
   return undefined;
 };
 
-// Função para extrair o status atual ou novo status, se presente
+// Função aprimorada para extrair o título do chamado
+const extractTicketTitle = (message: string): string | undefined => {
+  // Padrões melhorados para capturar diferentes formatos de título
+  const patterns = [
+    /chamado\s+#\d+\s+-\s+([^.!?]+)/i,
+    /chamado\s+(?:[^'"]*)?["']([^"']+)["']/i,
+    /chamado\s+(?:[^:]*):?\s+([^.!?]+)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const matches = message.match(pattern);
+    if (matches && matches.length > 1) {
+      return matches[1].trim();
+    }
+  }
+  
+  return undefined;
+};
+
+// Função para extrair o status atual ou novo status
 const extractStatus = (message: string): string | undefined => {
   const statusPattern = /(?:atualizado para|alterado para|mudado para|status:)\s+([A-Za-zÀ-ÖØ-öø-ÿ\s_]+)/i;
   const matches = message.match(statusPattern);
@@ -90,18 +134,7 @@ const extractStatus = (message: string): string | undefined => {
   return undefined;
 };
 
-// Função para extrair qualquer título mencionado no chamado
-const extractTicketTitle = (message: string): string | undefined => {
-  const titlePattern = /[Cc]hamado\s+(?:[^'"]*['""])?(["'])(.*?)\1/;
-  const matches = message.match(titlePattern);
-  
-  if (matches && matches.length > 2) {
-    return matches[2].trim();
-  }
-  return undefined;
-};
-
-// Função para extrair a prioridade, se mencionada
+// Função para extrair a prioridade
 const extractPriority = (message: string): string | undefined => {
   const priorityPattern = /prioridade\s+([A-Za-zÀ-ÖØ-öø-ÿ]+)/i;
   const matches = message.match(priorityPattern);
@@ -129,16 +162,30 @@ export default function NotificacoesPage() {
       
       try {
         const data = await api.notifications.list(token);
-        // Transformar para ExtendedNotification e extrair o ID do chamado da mensagem
-        const extendedData = data.map((notification: Notification) => ({
-          ...notification,
-          isExpanded: false,
-          chamadoId: extractTicketId(notification.mensagem),
-          tecnicoNome: extractTechnicianName(notification.mensagem),
-          statusNovo: extractStatus(notification.mensagem),
-          tituloChamado: extractTicketTitle(notification.mensagem),
-          prioridade: extractPriority(notification.mensagem)
-        }));
+        
+        // Transformar para ExtendedNotification e extrair informações da mensagem
+        const extendedData = data.map((notification: Notification) => {
+          // Extrair metadados e limpar a mensagem
+          const { chamadoId, tituloChamado, tecnicoNome, mensagemLimpa } = 
+            extractMetadataAndCleanMessage(notification.mensagem);
+          
+          // Usar métodos de extração de fallback para mensagens que não têm metadados
+          const fallbackChamadoId = extractTicketId(notification.mensagem);
+          const fallbackTecnicoNome = extractTechnicianName(notification.mensagem);
+          const fallbackTituloChamado = extractTicketTitle(notification.mensagem);
+          
+          return {
+            ...notification,
+            mensagemLimpa,
+            isExpanded: false,
+            chamadoId: chamadoId || fallbackChamadoId,
+            tecnicoNome: tecnicoNome || fallbackTecnicoNome,
+            statusNovo: extractStatus(notification.mensagem),
+            tituloChamado: tituloChamado || fallbackTituloChamado,
+            prioridade: extractPriority(notification.mensagem)
+          };
+        });
+        
         setNotifications(extendedData);
       } catch (error) {
         console.error('Erro ao carregar notificações:', error);
@@ -251,17 +298,13 @@ export default function NotificacoesPage() {
   const renderExpandedDetails = (notification: ExtendedNotification) => {
     const type = getNotificationType(notification.mensagem);
     
-    // Inicializamos com algumas informações básicas que serão exibidas em todos os tipos
+    // Informações comuns para todos os tipos de notificações
     const commonDetails = (
       <>
         {notification.chamadoId && (
           <p className="text-sm text-slate-700">
             <span className="font-medium">Chamado:</span> #{notification.chamadoId}
-          </p>
-        )}
-        {notification.tituloChamado && (
-          <p className="text-sm text-slate-700">
-            <span className="font-medium">Título:</span> {notification.tituloChamado}
+            {notification.tituloChamado && ` - ${notification.tituloChamado}`}
           </p>
         )}
         {notification.prioridade && (
@@ -282,7 +325,7 @@ export default function NotificacoesPage() {
         <h4 className="text-sm font-bold mb-3 text-slate-900">Detalhes da Notificação</h4>
         
         <div className="space-y-2">
-          {/* Informações específicas com base no tipo de notificação */}
+          {/* Detalhes específicos para cada tipo de notificação */}
           {type === 'status_change' && (
             <>
               <p className="text-sm text-slate-700">
@@ -346,7 +389,13 @@ export default function NotificacoesPage() {
               <p className="text-sm text-slate-700">
                 <span className="font-medium">Tipo:</span> Chamado Atribuído
               </p>
-              {commonDetails}
+              {/* Exibir título do chamado aqui, como solicitado */}
+              {notification.chamadoId && notification.tituloChamado && (
+                <p className="text-sm text-slate-700">
+                  <span className="font-medium">Chamado:</span> {notification.tituloChamado}
+                </p>
+              )}
+              {/* Exibir nome do técnico aqui, como solicitado */}
               {notification.tecnicoNome && (
                 <p className="text-sm text-slate-700">
                   <span className="font-medium">Técnico Responsável:</span>{' '}
@@ -358,7 +407,10 @@ export default function NotificacoesPage() {
               <div className="mt-2 pt-2 border-t border-slate-200">
                 <p className="text-sm text-slate-700">
                   <span className="font-medium">Detalhes:</span> 
-                  {notification.tecnicoNome && ` O técnico ${notification.tecnicoNome} já começou a trabalhar no seu chamado.` }  O prazo para resolução depende da prioridade e complexidade do problema.
+                  {notification.tecnicoNome 
+                    ? ` O técnico ${notification.tecnicoNome} já começou a trabalhar no seu chamado.` 
+                    : ' Um técnico já começou a trabalhar no seu chamado.'
+                  } O prazo para resolução depende da prioridade e complexidade do problema.
                 </p>
               </div>
             </>
@@ -388,7 +440,7 @@ export default function NotificacoesPage() {
               variant="default"
               size="sm"
               onClick={(e) => {
-                e.stopPropagation(); // Evita que o clique se propague para o componente pai
+                e.stopPropagation();
                 navigateToTicket(notification.chamadoId!);
               }}
             >
@@ -405,7 +457,7 @@ export default function NotificacoesPage() {
               variant="outline"
               size="sm"
               onClick={(e) => {
-                e.stopPropagation(); // Evita que o clique se propague
+                e.stopPropagation();
                 markAsRead(notification.id);
               }}
             >
@@ -505,7 +557,10 @@ export default function NotificacoesPage() {
                           )}
                         </div>
                       </div>
-                      <p className="text-sm text-slate-600">{notification.mensagem}</p>
+                      {/* Usar mensagemLimpa em vez da mensagem original */}
+                      <p className="text-sm text-slate-600">
+                        {notification.mensagemLimpa || notification.mensagem}
+                      </p>
                       
                       {/* Área expandida com detalhes da notificação */}
                       {notification.isExpanded && renderExpandedDetails(notification)}
